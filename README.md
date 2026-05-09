@@ -24,7 +24,6 @@ O sistema permite que o usuário encontre rapidamente a unidade de atendimento m
 
 - `index.html`: Arquivo principal contendo toda a interface gráfica e a lógica JavaScript para a exibição de resultados, renderização do mapa e cálculo de distâncias.
 - `geocoder.py`: Script Python para extrair as coordenadas latitude/longitude baseadas nos endereços de Votorantim e gerar o arquivo JSON correspondente.
-- `make_index.py`: Script utilizado em desenvolvimento para injetar dados do JSON diretamente no HTML do projeto (bypassing CORS local).
 - `dados_votorantim.json`: Base de dados estática gerada contendo a lista completa e geocodificada de todas as UBS e ESF de Votorantim.
 
 ## 🏃 Como Executar
