@@ -35,32 +35,33 @@ Para criar um mapa interativo, precisamos de três pilares: a biblioteca que ren
 
 ---
 
-## 3. Definição do Banco de Dados
+## 3. Definição do Banco de Dados e Autenticação de Usuários
 
-Para armazenar as informações das Unidades Básicas de Saúde (UBS), Estratégias de Saúde da Família (ESF) e suas respectivas coordenadas (Latitude e Longitude).
+Como o sistema exigirá controle de acesso e diferentes permissões de uso, não é mais possível utilizar apenas arquivos estáticos. Precisamos de um banco de dados real com um sistema de autenticação (Login) para três perfis distintos:
 
-### 3.1. Opções Descartadas (Riscos de Custo)
-- **AWS RDS, Google Cloud SQL, Firebase (Planos Pagos):** Ferramentas excelentes, mas sujeitas a cobrança em dólar. O Firebase possui o plano *Spark* (gratuito), porém os dados ficam presos na plataforma do Google (Vendor Lock-in).
+1. **ADM (Administrador):** Possui acesso total ao sistema, gerencia usuários e configurações globais.
+2. **Saúde (Profissional da Prefeitura):** Tem permissão para adicionar, editar ou remover locais (UBS/ESF) diretamente no mapa.
+3. **Paciente (Munícipe):** Possui acesso de leitura. Apenas utiliza a aplicação para buscar endereços e ver o local mais próximo.
 
-### 3.2. As 3 Opções Viáveis (Custo R$ 0,00)
+### 3.1. Opções Descartadas (Riscos de Custo e Lock-in)
+- **AWS RDS ou Google Cloud SQL:** Serviços corporativos robustos, mas que geram faturas mensais em dólar desde o primeiro dia.
+- **Firebase (Plano Spark):** Apesar de possuir um plano gratuito, utiliza banco NoSQL proprietário do Google. Se a prefeitura decidir hospedar o sistema internamente no futuro, seria necessário reescrever todo o código (o chamado *Vendor Lock-in*).
 
-**Opção A: PostgreSQL + extensão PostGIS**
-- *Análise:* É o padrão ouro global para banco de dados relacional com dados geoespaciais. Totalmente gratuito e código aberto.
-- *Aplicação no TCC:* Se a prefeitura de Votorantim **já possuir servidores próprios (Datacenter Municipal)**, o PostgreSQL pode ser instalado lá com custo R$ 0,00. 
+### 3.2. As Opções Viáveis (Custo R$ 0,00)
 
-**Opção B: Banco de Dados Embarcado (SQLite + SpatiaLite)**
-- *Análise:* É um banco de dados relacional completo em um único arquivo de computador. Não precisa de servidor rodando, não consome memória em background.
-- *Aplicação no TCC:* Ideal caso não haja servidor robusto disponível. O banco fica dentro da própria pasta da aplicação web. Custo R$ 0,00 absoluto e manutenção zero.
+**Opção A: PostgreSQL + Backend Próprio (On-Premise)**
+- *Análise:* É o padrão ouro global (código aberto). Se a prefeitura de Votorantim possuir **servidores físicos próprios (Datacenter Municipal)**, podemos instalar o PostgreSQL gratuitamente. 
+- *Autenticação:* Exigiria o desenvolvimento manual do sistema de login e permissões do zero (o que consome muito tempo do TCC).
 
-**Opção C: Arquivos Estáticos Estruturados (JSON estático) - *A Abordagem Atual***
-- *Análise:* Em vez de um banco de dados tradicional, os dados das ~20 unidades de saúde são convertidos de Python para um arquivo estático (JSON) que o site lê diretamente.
-- *Aplicação no TCC:* O número de unidades de saúde em uma cidade não muda todo dia. Um arquivo `.json` é perfeitamente capaz de lidar com isso. A prefeitura pode hospedar o site no *GitHub Pages* (hospedagem 100% gratuita). Nenhuma infraestrutura de banco de dados é necessária. **Custo de servidor: R$ 0,00.**
+**Opção B: Supabase (Backend-as-a-Service - Free Tier)**
+- *Análise:* O Supabase é a alternativa open-source ao Firebase. Ele roda um banco **PostgreSQL** autêntico por trás e oferece um **Plano Gratuito vitalício** muito generoso (suporta até 50.000 usuários ativos por mês).
+- *Autenticação e Perfis:* Já possui um sistema de Autenticação (Auth) pronto e segurança em nível de linha (RLS - Row Level Security). Isso torna extremamente fácil criar a regra: *Se for Paciente, apenas lê; Se for Saúde, pode adicionar locais*.
+- *Garantia contra Custos:* Se um dia a aplicação ultrapassar os limites do plano gratuito, a prefeitura não perde nada. Por ser PostgreSQL puro, basta exportar os dados e rodar no servidor da prefeitura gratuitamente, sem precisar refazer a aplicação.
 
 ### 3.3. Justificativa Final de Escolha do Banco de Dados
-Para o escopo do TCC e da Prefeitura, decidimos estruturar o banco de dados em **duas fases metodológicas**:
+Para este TCC e para a realidade da prefeitura, a tecnologia escolhida é o **Supabase**. 
 
-1. **Fase Atual (Entrega do TCC - Baixa Complexidade):** Utilização de **JSON Estático**. Isso nos permitiu focar na funcionalidade de cálculo matemático de distância (Fórmula de Haversine) que ocorre no dispositivo do usuário, cortando em 100% a necessidade de um servidor de banco de dados e hospedagem paga, o que garante a adoção imediata pela prefeitura sem licitação ou custos de nuvem.
-2. **Fase Futura (Expansão para a Prefeitura):** Recomendamos a utilização oficial do **PostgreSQL**. Quando a Secretaria de Saúde for integrar este sistema aos prontuários e painéis de controle internos já existentes da prefeitura, o PostgreSQL open-source lidará com milhares de registros de forma gratuita.
+Ele resolve perfeitamente a necessidade de ter múltiplos usuários (ADM, Saúde, Paciente) de forma segura, entrega um banco PostgreSQL profissional para salvar as coordenadas dos mapas e garante que a prefeitura **não gastará 1 real sequer** com servidores ou licenças. Além disso, a prefeitura fica livre de amarras comerciais por se tratar de uma ferramenta open-source.
 
 ---
 
