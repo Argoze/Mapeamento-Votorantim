@@ -35,6 +35,14 @@ ALTER TABLE public.unidades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.eventos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.perfis ENABLE ROW LEVEL SECURITY;
 
+-- Função segura para ler perfis sem causar loop infinito
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS text
+LANGUAGE sql SECURITY DEFINER SET search_path = public
+STABLE AS $$
+  SELECT role FROM public.perfis WHERE id = auth.uid();
+$$;
+
 -- Políticas para a tabela UNIDADES
 -- Público pode ler as unidades
 CREATE POLICY "Leitura pública de unidades" 
@@ -43,7 +51,7 @@ ON public.unidades FOR SELECT USING (true);
 -- Apenas autenticados (ADM ou Saude) podem inserir/editar/deletar unidades
 CREATE POLICY "Gerenciamento de unidades restrito" 
 ON public.unidades FOR ALL 
-USING (auth.uid() IN (SELECT id FROM public.perfis WHERE role IN ('adm', 'saude')));
+USING (public.get_user_role() IN ('adm', 'saude'));
 
 -- Políticas para a tabela EVENTOS
 -- Público pode ler os eventos
@@ -53,7 +61,7 @@ ON public.eventos FOR SELECT USING (true);
 -- Apenas autenticados (ADM ou Saude) podem inserir/editar/deletar eventos
 CREATE POLICY "Gerenciamento de eventos restrito" 
 ON public.eventos FOR ALL 
-USING (auth.uid() IN (SELECT id FROM public.perfis WHERE role IN ('adm', 'saude')));
+USING (public.get_user_role() IN ('adm', 'saude'));
 
 -- Políticas para a tabela PERFIS
 -- O próprio usuário pode ler seu perfil
@@ -64,7 +72,7 @@ USING (auth.uid() = id);
 -- Apenas ADM pode gerenciar perfis (ler todos e criar)
 CREATE POLICY "Gerenciamento de perfis por ADM" 
 ON public.perfis FOR ALL 
-USING (auth.uid() IN (SELECT id FROM public.perfis WHERE role = 'adm'));
+USING (public.get_user_role() = 'adm');
 
 -- 3. Inserindo os Dados Iniciais (Migrando do seu JSON)
 INSERT INTO public.unidades (nome, endereco, lat, lng) VALUES 
