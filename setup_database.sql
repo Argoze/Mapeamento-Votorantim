@@ -94,3 +94,32 @@ INSERT INTO public.unidades (nome, endereco, lat, lng) VALUES
 ('ESF Green Valley', 'Rua José Raimundo da Silva, Green Valley', -23.558164, -47.4899802),
 ('ESF Amorim', 'Rua José Antônio de Mello, 81, Vila Amorim', -23.5560867, -47.4434317),
 ('UBS Serrano', 'Rua Francisco Lopes de Almeida, 76, Jardim Palmira', -23.5605, -47.4541);
+
+-- ==========================================================
+-- 4. CRIAÇÃO DE USUÁRIOS DE TESTE (ADMIN E SAÚDE)
+-- ==========================================================
+
+-- Cria ADM (se não existir)
+INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, is_super_admin
+)
+SELECT 
+    '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'admin@votorantim.sp.gov.br', crypt('senha123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', false
+WHERE NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'admin@votorantim.sp.gov.br');
+
+-- Cria SAUDE (se não existir)
+INSERT INTO auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, is_super_admin
+)
+SELECT 
+    '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'saude@votorantim.sp.gov.br', crypt('senha123', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}', '{}', false
+WHERE NOT EXISTS (SELECT 1 FROM auth.users WHERE email = 'saude@votorantim.sp.gov.br');
+
+-- Vincula os perfis aos usuários criados
+INSERT INTO public.perfis (id, role, nome)
+SELECT id, 'adm', 'Administrador Chefe' FROM auth.users WHERE email = 'admin@votorantim.sp.gov.br'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.perfis (id, role, nome)
+SELECT id, 'saude', 'Profissional de Saúde' FROM auth.users WHERE email = 'saude@votorantim.sp.gov.br'
+ON CONFLICT (id) DO NOTHING;
