@@ -30,10 +30,11 @@ npm install
 ```
 
 3. **Configuração de Variáveis de Ambiente:**
-Crie um arquivo `.env` na raiz do projeto com as chaves do seu Supabase:
+Crie um arquivo `.env` na raiz do projeto com as chaves do seu Supabase (disponíveis em Project Settings > API):
 ```env
 VITE_SUPABASE_URL=Sua_URL_aqui
 VITE_SUPABASE_ANON_KEY=Sua_Anon_Key_aqui
+VITE_SUPABASE_SERVICE_ROLE_KEY=Sua_Service_Role_Key_aqui
 ```
 
 4. **Inicie o servidor de desenvolvimento:**
