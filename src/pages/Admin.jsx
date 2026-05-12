@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase, checkAuth, logout } from '../lib/supabase';
+import { supabase, checkAuth, logout, createUserWithProfile } from '../lib/supabase';
 import { Info } from 'lucide-react';
 
 export default function Admin() {
@@ -12,6 +12,15 @@ export default function Admin() {
   const [tipo, setTipo] = useState('Informativo');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
+  
+  // States para criação de usuário
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserSenha, setNewUserSenha] = useState('');
+  const [newUserNome, setNewUserNome] = useState('');
+  const [newUserRole, setNewUserRole] = useState('saude');
+  const [userLoading, setUserLoading] = useState(false);
+  const [userMsg, setUserMsg] = useState({ text: '', type: '' });
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +62,29 @@ export default function Admin() {
     } finally {
       setLoading(false);
       setTimeout(() => setMsg({ text: '', type: '' }), 5000);
+    }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setUserLoading(true);
+    setUserMsg({ text: '', type: '' });
+
+    try {
+      if (newUserSenha.length < 6) {
+        throw new Error("A senha deve ter pelo menos 6 caracteres.");
+      }
+      
+      await createUserWithProfile(newUserEmail, newUserSenha, newUserRole, newUserNome);
+      
+      setUserMsg({ text: "Usuário criado com sucesso! (Se a confirmação por email estiver ativa no Supabase, ele precisará confirmar)", type: "success" });
+      setNewUserEmail(''); setNewUserSenha(''); setNewUserNome(''); setNewUserRole('saude');
+    } catch (err) {
+      console.error(err);
+      setUserMsg({ text: "Erro ao criar usuário: " + err.message, type: "error" });
+    } finally {
+      setUserLoading(false);
+      setTimeout(() => setUserMsg({ text: '', type: '' }), 10000);
     }
   };
 
@@ -128,12 +160,41 @@ export default function Admin() {
           </div>
           
           <div className="space-y-6">
-            <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200 opacity-70">
-              <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Cadastrar UBS/ESF no mapa</h2>
-              <p className="text-sm text-slate-500 mb-4">Para adicionar um novo posto de saúde no mapa, preencha as coordenadas geográficas precisas.</p>
-              <div className="bg-yellow-50 text-yellow-800 p-3 rounded text-sm font-medium">
-                Em construção. Módulo de geocodificação em andamento.
-              </div>
+            <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Cadastrar novo usuário</h2>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Nome completo</label>
+                  <input type="text" required value={newUserNome} onChange={e => setNewUserNome(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" placeholder="Ex: Dr. João Silva" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail corporativo</label>
+                  <input type="email" required value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" placeholder="joao@votorantim.sp.gov.br" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Senha provisória</label>
+                    <input type="password" required value={newUserSenha} onChange={e => setNewUserSenha(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" placeholder="Mín. 6 caracteres" minLength="6" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Permissão</label>
+                    <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                      <option value="saude">Saúde (Apenas alertas)</option>
+                      <option value="adm">Admin (Acesso total)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {userMsg.text && (
+                  <div className={`text-xs font-semibold p-2 rounded ${userMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                    {userMsg.text}
+                  </div>
+                )}
+
+                <button type="submit" disabled={userLoading} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-xl shadow transition-all disabled:opacity-70 text-sm">
+                  {userLoading ? 'Criando usuário...' : 'Criar conta'}
+                </button>
+              </form>
             </div>
 
             <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
