@@ -6,11 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saúde Votorantim - Mapeamento de Unidades</title>
 
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Google Fonts -->
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -59,7 +58,7 @@
             }
         }
 
-        /* Gradient text */
+
         .text-gradient {
             background: linear-gradient(90deg, #1e40af, #3b82f6);
             -webkit-background-clip: text;
@@ -67,7 +66,7 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* Range slider styling */
+
         input[type=range] {
             accent-color: #2563eb;
         }
@@ -76,7 +75,6 @@
 
 <body class="text-slate-800 antialiased relative min-h-screen overflow-x-hidden">
 
-    <!-- Decorative background blobs -->
     <div class="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-50 to-transparent -z-10"></div>
     <div
         class="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-blue-100 opacity-50 blur-[80px] -z-10 pointer-events-none">
@@ -90,14 +88,21 @@
                 </h1>
                 <p class="text-slate-500 text-lg">Encontre a unidade básica de saúde mais próxima de você</p>
             </div>
-            <div
-                class="bg-blue-50 px-4 py-2 rounded-full border border-blue-100 text-blue-800 font-semibold text-sm shadow-sm whitespace-nowrap">
-                Rede de atendimento municipal
+            <div class="flex flex-col gap-3 items-center sm:items-end">
+                <div class="bg-blue-50 px-4 py-2 rounded-full border border-blue-100 text-blue-800 font-semibold text-sm shadow-sm whitespace-nowrap">
+                    Rede de atendimento municipal
+                </div>
+                <a href="eventos.html" class="flex items-center gap-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition-colors shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    Ver Alertas e Campanhas
+                </a>
             </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Sidebar Controls -->
+
             <div class="lg:col-span-1 space-y-6">
                 <div class="glass-panel p-6 rounded-2xl shadow-lg border border-slate-100">
                     <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
@@ -110,7 +115,7 @@
                     </h2>
 
                     <div class="space-y-5">
-                        <!-- Busca por Endereço -->
+
                         <div>
                             <label class="block text-sm font-semibold text-slate-600 mb-2">Endereço de
                                 referência</label>
@@ -130,7 +135,7 @@
                             <div class="flex-grow border-t border-slate-200"></div>
                         </div>
 
-                        <!-- Busca por GPS -->
+
                         <button onclick="getUserLocation()"
                             class="w-full bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20"
@@ -142,7 +147,7 @@
                             Usar minha localização
                         </button>
 
-                        <!-- Configuração do Raio -->
+
                         <div class="pt-4 border-t border-slate-100">
                             <label class="flex justify-between items-center text-sm font-semibold text-slate-600 mb-3">
                                 Raio de busca
@@ -160,7 +165,7 @@
                     </div>
                 </div>
 
-                <!-- Status info -->
+
                 <div
                     class="glass-panel p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
                     <div class="text-sm font-medium text-slate-600">
@@ -173,7 +178,7 @@
                 </div>
             </div>
 
-            <!-- Mapa -->
+
             <div class="lg:col-span-2 relative z-0">
                 <div class="relative rounded-2xl overflow-hidden bg-white p-1 shadow-xl border border-slate-100">
                     <div id="map"></div>
@@ -181,7 +186,7 @@
             </div>
         </div>
 
-        <!-- Lista de Resultados -->
+
         <div class="mt-12">
             <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                 Unidades próximas
@@ -189,7 +194,7 @@
                     proximidade)</span>
             </h2>
             <div id="resultList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                <!-- Cards preenchidos via JavaScript -->
+
             </div>
             <div id="emptyState"
                 class="hidden text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -206,11 +211,11 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Dados injetados automaticamente
+
         const unidades = [
             {
                 "nome": "UBS Vila Nova",
