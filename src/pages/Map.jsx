@@ -99,6 +99,45 @@ export default function Map() {
     }
   };
 
+  const handleGeolocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocalização não suportada pelo seu navegador.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLon = position.coords.longitude;
+
+        setCenter([userLat, userLon]);
+        setZoom(14);
+        setQuery('Minha localização atual');
+
+        if (unidades.length > 0) {
+          const unidadesComDistancia = unidades.map(u => ({
+            ...u,
+            distancia: calcularDistancia(userLat, userLon, u.lat, u.lng)
+          })).sort((a, b) => a.distancia - b.distancia);
+
+          const maisProxima = unidadesComDistancia[0];
+          setTimeout(() => {
+            setCenter([maisProxima.lat, maisProxima.lng]);
+            setZoom(16);
+          }, 2000);
+        }
+        setLoading(false);
+      },
+      (err) => {
+        setError('Não foi possível obter sua localização. Permita o acesso.');
+        setLoading(false);
+      }
+    );
+  };
+
   return (
     <div className="min-h-screen relative overflow-x-hidden p-4 sm:p-6 lg:p-8">
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-50 to-transparent -z-10"></div>
@@ -123,7 +162,7 @@ export default function Map() {
 
         <div className="glass-panel p-6 sm:p-8 rounded-3xl shadow-lg border border-white mb-10">
           <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="w-full md:w-3/4">
+            <div className="w-full md:w-2/4">
               <label htmlFor="endereco" className="block text-sm font-bold text-slate-700 mb-2">
                 Qual o seu endereço?
               </label>
@@ -145,9 +184,35 @@ export default function Map() {
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
             </div>
+            <div className="w-full md:w-1/4">
+              <button
+                onClick={handleGeolocation}
+                disabled={loading}
+                className="w-full h-[60px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-300 transition-all flex justify-center items-center gap-2"
+              >
+                Usar localização
+              </button>
+            </div>
           </div>
           {error && <p className="text-red-500 mt-3 text-sm font-semibold">{error}</p>}
         </div>
+
+        {unidades.length === 0 && !loading && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8 rounded-r-lg shadow-sm">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700 font-medium">
+                  Nenhuma unidade de saúde foi encontrada no banco de dados. Você executou o arquivo <strong>setup_database.sql</strong> no painel do Supabase?
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="glass-panel p-2 rounded-3xl shadow-lg border border-white relative">
           <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '20px' }}>
