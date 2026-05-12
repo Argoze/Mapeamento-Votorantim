@@ -8,7 +8,10 @@
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
-
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
@@ -215,117 +218,27 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
+        // Variável para armazenar as unidades que virão do banco de dados
+        let unidades = [];
 
-        const unidades = [
-            {
-                "nome": "UBS Vila Nova",
-                "endereco": "Av. Pedro Augusto Rangel, 1925, Vila Nova",
-                "lat": -23.5385391,
-                "lng": -47.4156902
-            },
-            {
-                "nome": "UBS Vila Garcia",
-                "endereco": "Av. Izabel Ferreira Coelho, 271, Vila Garcia",
-                "lat": -23.5512,
-                "lng": -47.432
-            },
-            {
-                "nome": "UBS Rio Acima",
-                "endereco": "Av. Octávio Augusto Rangel, 1282, Jardim Toledo",
-                "lat": -23.5277651,
-                "lng": -47.4402925
-            },
-            {
-                "nome": "UBS Barra Funda",
-                "endereco": "Rua Lopes Chaves, S/N, Barra Funda",
-                "lat": -23.5461177,
-                "lng": -47.4383105
-            },
-            {
-                "nome": "UBS Bela Vista",
-                "endereco": "Av. São João, 867, Centro",
-                "lat": -23.535,
-                "lng": -47.442
-            },
-            {
-                "nome": "Hospital Municipal",
-                "endereco": "Rua João Walter, 181, Centro",
-                "lat": -23.538,
-                "lng": -47.445
-            },
-            {
-                "nome": "UPA Central",
-                "endereco": "Rua Antônio Walter, 66-146, Centro",
-                "lat": -23.5375,
-                "lng": -47.446
-            },
-            {
-                "nome": "UBS Clarice",
-                "endereco": "Rua Mercedes Nardi Arcuri, S/N, Jardim Clarice",
-                "lat": -23.5532,
-                "lng": -47.4411
-            },
-            {
-                "nome": "UBS Itapeva",
-                "endereco": "Rua João Santiago Figueira, 200, Jardim Itapeva",
-                "lat": -23.5655,
-                "lng": -47.438
-            },
-            {
-                "nome": "UBS Novo Mundo",
-                "endereco": "Rua Abílio Maia, 46, Jardim Novo Mundo",
-                "lat": -23.5388857,
-                "lng": -47.5039672
-            },
-            {
-                "nome": "UBS Archila",
-                "endereco": "Rua Lázara Bueno de Arruda, Jardim Archila",
-                "lat": -23.5415,
-                "lng": -47.4522
-            },
-            {
-                "nome": "ESF Promorar",
-                "endereco": "Rua Boaventura Maganhato, 138, São Matheus",
-                "lat": -23.546,
-                "lng": -47.441
-            },
-            {
-                "nome": "ESF Cristal",
-                "endereco": "Rua Anália Pereira, 762, Jardim Cristal",
-                "lat": -23.5781298,
-                "lng": -47.4694753
-            },
-            {
-                "nome": "ESF Tatiana",
-                "endereco": "Rua Adriano Maciel de Queiroz, 569, Jardim Tatiana",
-                "lat": -23.544726,
-                "lng": -47.4967263
-            },
-            {
-                "nome": "ESF São João",
-                "endereco": "Rua Zilda Tescaro Sbrana, Parque São João",
-                "lat": -23.55,
-                "lng": -47.42
-            },
-            {
-                "nome": "ESF Green Valley",
-                "endereco": "Rua José Raimundo da Silva, Green Valley",
-                "lat": -23.558164,
-                "lng": -47.4899802
-            },
-            {
-                "nome": "ESF Amorim",
-                "endereco": "Rua José Antônio de Mello, 81, Vila Amorim",
-                "lat": -23.5560867,
-                "lng": -47.4434317
-            },
-            {
-                "nome": "UBS Serrano",
-                "endereco": "Rua Francisco Lopes de Almeida, 76, Jardim Palmira",
-                "lat": -23.5605,
-                "lng": -47.4541
+        // Função para carregar as unidades do Supabase
+        async function loadUnidades() {
+            try {
+                const { data, error } = await supabase
+                    .from('unidades')
+                    .select('*');
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    unidades = data;
+                } else {
+                    console.warn("Nenhuma unidade encontrada no banco de dados.");
+                }
+            } catch (err) {
+                console.error("Erro ao carregar unidades:", err);
             }
-        ];
+        }
 
         // Configuração Inicial do Mapa
         const map = L.map('map', { zoomControl: false }).setView([-23.545, -47.44], 13);
@@ -536,7 +449,10 @@
             }
         });
 
+        // Chama carregar unidades assim que a página abrir
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadUnidades();
+        });
     </script>
 </body>
-
 </html>
