@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
@@ -31,6 +31,8 @@ export default function Map() {
   const [zoom, setZoom] = useState(13);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [unidadesProximas, setUnidadesProximas] = useState([]);
 
   useEffect(() => {
     async function fetchUnidades() {
@@ -75,17 +77,20 @@ export default function Map() {
 
         setCenter([userLat, userLon]);
         setZoom(14);
+        setUserLocation([userLat, userLon]);
 
         const unidadesComDistancia = unidades.map(u => ({
           ...u,
           distancia: calcularDistancia(userLat, userLon, u.lat, u.lng)
         })).sort((a, b) => a.distancia - b.distancia);
 
+        setUnidadesProximas(unidadesComDistancia);
+
         if (unidadesComDistancia.length > 0) {
           const maisProxima = unidadesComDistancia[0];
           setTimeout(() => {
             setCenter([maisProxima.lat, maisProxima.lng]);
-            setZoom(16);
+            setZoom(15);
           }, 2000);
         }
       } else {
@@ -116,6 +121,7 @@ export default function Map() {
         setCenter([userLat, userLon]);
         setZoom(14);
         setQuery('Minha localização atual');
+        setUserLocation([userLat, userLon]);
 
         if (unidades.length > 0) {
           const unidadesComDistancia = unidades.map(u => ({
@@ -123,10 +129,12 @@ export default function Map() {
             distancia: calcularDistancia(userLat, userLon, u.lat, u.lng)
           })).sort((a, b) => a.distancia - b.distancia);
 
+          setUnidadesProximas(unidadesComDistancia);
+
           const maisProxima = unidadesComDistancia[0];
           setTimeout(() => {
             setCenter([maisProxima.lat, maisProxima.lng]);
-            setZoom(16);
+            setZoom(15);
           }, 2000);
         }
         setLoading(false);
@@ -197,21 +205,61 @@ export default function Map() {
           {error && <p className="text-red-500 mt-3 text-sm font-semibold">{error}</p>}
         </div>
 
-        <div className="glass-panel p-2 rounded-3xl shadow-lg border border-white relative">
-          <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '20px' }}>
-            <TileLayer
-              attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            />
-            <MapController center={center} zoom={zoom} />
-            {unidades.map(unidade => (
-              <Marker key={unidade.id} position={[unidade.lat, unidade.lng]}>
-                <Popup>
-                  <b>{unidade.nome}</b><br />{unidade.endereco}
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 glass-panel p-2 rounded-3xl shadow-lg border border-white relative">
+            <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '20px' }}>
+              <TileLayer
+                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              />
+              <MapController center={center} zoom={zoom} />
+              
+              {userLocation && (
+                <CircleMarker center={userLocation} pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.5 }} radius={10}>
+                  <Popup>
+                    <b>Você está aqui</b>
+                  </Popup>
+                </CircleMarker>
+              )}
+
+              {unidades.map(unidade => (
+                <Marker key={unidade.id} position={[unidade.lat, unidade.lng]}>
+                  <Popup>
+                    <b>{unidade.nome}</b><br />{unidade.endereco}
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+
+          <div className="glass-panel p-6 rounded-3xl shadow-lg border border-white lg:col-span-1 h-[566px] overflow-y-auto">
+            <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
+              Unidades mais próximas
+            </h2>
+            
+            {unidadesProximas.length === 0 ? (
+              <p className="text-slate-500 text-sm mt-4 text-center">
+                Busque seu endereço ou use sua localização para ver a lista.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {unidadesProximas.map((u, index) => (
+                  <div key={u.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+                    setCenter([u.lat, u.lng]);
+                    setZoom(16);
+                  }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-bold text-slate-800 text-sm">{u.nome}</h3>
+                      <span className={`text-xs font-bold px-2 py-1 rounded-lg ${index === 0 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">{u.endereco}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
