@@ -77,11 +77,11 @@ export default function Admin() {
       
       await createUserWithProfile(newUserEmail, newUserSenha, newUserRole, newUserNome);
       
-      setUserMsg({ text: "Usuário criado com sucesso! (Se a confirmação por email estiver ativa no Supabase, ele precisará confirmar)", type: "success" });
+      setUserMsg({ text: "Usuário criado com sucesso! Ele já pode acessar o sistema imediatamente.", type: "success" });
       setNewUserEmail(''); setNewUserSenha(''); setNewUserNome(''); setNewUserRole('saude');
     } catch (err) {
       console.error(err);
-      setUserMsg({ text: "Erro ao criar usuário: " + err.message, type: "error" });
+      setUserMsg({ text: err.message, type: "error" });
     } finally {
       setUserLoading(false);
       setTimeout(() => setUserMsg({ text: '', type: '' }), 10000);
