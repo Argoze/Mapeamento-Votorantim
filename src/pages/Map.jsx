@@ -7,6 +7,7 @@ import { Search, Navigation, Building2, Stethoscope, Cross, Siren } from 'lucide
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import StatsCard from '../components/StatsCard';
+import NewsCarousel from '../components/NewsCarousel';
 import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 
 // Corrige o ícone padrão do Leaflet no React
@@ -78,6 +79,7 @@ export default function Map() {
   const [dataLoading, setDataLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [unidadesProximas, setUnidadesProximas] = useState([]);
+  const [noticias, setNoticias] = useState([]);
 
   useEffect(() => {
     async function fetchUnidades() {
@@ -89,7 +91,16 @@ export default function Map() {
       }
       setDataLoading(false);
     }
+    async function fetchNoticias() {
+      const { data } = await supabase
+        .from('noticias')
+        .select('*')
+        .order('criado_em', { ascending: false })
+        .limit(10);
+      if (data) setNoticias(data);
+    }
     fetchUnidades();
+    fetchNoticias();
   }, []);
 
   const calcularDistancia = (lat1, lon1, lat2, lon2) => {
@@ -218,6 +229,9 @@ export default function Map() {
           </p>
         </header>
 
+        {/* News Carousel */}
+        {noticias.length > 0 && <NewsCarousel noticias={noticias} />}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <StatsCard icon={Building2} value={stats.ubs} label="UBS" color="blue" delay={0} />
@@ -295,6 +309,9 @@ export default function Map() {
                 <Marker key={unidade.id} position={[unidade.lat, unidade.lng]} icon={getUnitIcon(unidade.nome)}>
                   <Popup>
                     <div className="min-w-[200px]">
+                      {unidade.imagens && unidade.imagens.length > 0 && (
+                        <img src={unidade.imagens[0]} alt={unidade.nome} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }} />
+                      )}
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
                           getUnitType(unidade.nome).color === 'red' ? 'bg-red-500' :

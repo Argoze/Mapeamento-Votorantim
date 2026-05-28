@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MapPin, Megaphone, LogIn, Menu, X, Heart } from 'lucide-react';
+import { MapPin, Megaphone, Newspaper, LogIn, Menu, X, Heart } from 'lucide-react';
 
 export default function Navbar() {
   const location = useLocation();
@@ -16,6 +16,7 @@ export default function Navbar() {
   const links = [
     { to: '/', label: 'Mapa', icon: MapPin },
     { to: '/eventos', label: 'Campanhas', icon: Megaphone },
+    { to: '/noticias', label: 'Notícias', icon: Newspaper },
     { to: '/login', label: 'Acesso Restrito', icon: LogIn },
   ];
 

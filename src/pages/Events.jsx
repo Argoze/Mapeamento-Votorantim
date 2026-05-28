@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ShieldAlert, Info, Calendar, MapPin, Megaphone, Filter } from 'lucide-react';
+import { ShieldAlert, Info, Calendar, MapPin, Megaphone, Filter, ChevronLeft, ChevronRight, Image } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { EventCardSkeleton } from '../components/LoadingSkeleton';
@@ -118,55 +118,110 @@ export default function Events() {
             </div>
           ) : (
             eventosFiltrados.map((evento, index) => (
-              <div
-                key={evento.id}
-                className={`glass-panel p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-lg hover:border-slate-200 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
-              >
-                {/* Badge de tipo */}
-                <div className={`absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1.5 rounded-bl-xl uppercase tracking-wider ${
-                  evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
-                }`}>
-                  {evento.tipo}
-                </div>
-
-                {/* Badge de novo */}
-                {isNew(evento.criado_em) && (
-                  <div className="absolute top-3 left-3">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full animate-badge-pulse">
-                      ✨ Novo
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-4 mt-2">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    evento.tipo === 'Urgente' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-                  }`}>
-                    {evento.tipo === 'Urgente' ? <ShieldAlert size={24} /> : <Info size={24} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-slate-800 leading-tight">{evento.titulo}</h3>
-                    <p className="text-slate-600 mt-1.5 text-sm leading-relaxed">{evento.descricao}</p>
-                    
-                    <div className="mt-3 flex flex-col gap-1.5">
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Calendar size={14} className="text-slate-400" />
-                        <span>{evento.data_evento}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <MapPin size={14} className="text-slate-400" />
-                        <span>{evento.local_evento}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <EventCard key={evento.id} evento={evento} index={index} isNew={isNew} />
             ))
           )}
         </div>
       </div>
 
       <Footer />
+    </div>
+  );
+}
+
+// Event card with image gallery support
+function EventCard({ evento, index, isNew }) {
+  const [currentImg, setCurrentImg] = useState(0);
+  const hasImages = evento.imagens && evento.imagens.length > 0;
+
+  return (
+    <div
+      className={`glass-panel rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-lg hover:border-slate-200 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
+    >
+      {/* Image Gallery */}
+      {hasImages && (
+        <div className="relative h-48 overflow-hidden">
+          <img
+            src={evento.imagens[currentImg]}
+            alt={evento.titulo}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+
+          {/* Image navigation */}
+          {evento.imagens.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); setCurrentImg(prev => (prev - 1 + evento.imagens.length) % evento.imagens.length); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setCurrentImg(prev => (prev + 1) % evento.imagens.length); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+              >
+                <ChevronRight size={14} />
+              </button>
+              {/* Dots */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
+                {evento.imagens.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImg(i); }}
+                    className={`h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`}
+                  />
+                ))}
+              </div>
+              {/* Counter */}
+              <span className="absolute top-2 left-2 text-[10px] font-bold bg-black/50 text-white px-2 py-0.5 rounded-md flex items-center gap-1">
+                <Image size={10} /> {currentImg + 1}/{evento.imagens.length}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Badge de tipo */}
+      <div className={`absolute ${hasImages ? 'top-2 right-2' : 'top-0 right-0'} text-white text-[10px] font-bold px-3 py-1.5 ${hasImages ? 'rounded-lg' : 'rounded-bl-xl'} uppercase tracking-wider ${
+        evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+      }`}>
+        {evento.tipo}
+      </div>
+
+      {/* Badge de novo */}
+      {isNew(evento.criado_em) && (
+        <div className={`absolute ${hasImages ? 'top-2' : 'top-3'} left-3`}>
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full animate-badge-pulse">
+            ✨ Novo
+          </span>
+        </div>
+      )}
+
+      <div className={`flex items-start gap-4 ${hasImages ? 'p-5' : 'p-5 mt-2'}`}>
+        {!hasImages && (
+          <div className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+            evento.tipo === 'Urgente' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+          }`}>
+            {evento.tipo === 'Urgente' ? <ShieldAlert size={24} /> : <Info size={24} />}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-slate-800 leading-tight">{evento.titulo}</h3>
+          <p className="text-slate-600 mt-1.5 text-sm leading-relaxed">{evento.descricao}</p>
+          
+          <div className="mt-3 flex flex-col gap-1.5">
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Calendar size={14} className="text-slate-400" />
+              <span>{evento.data_evento}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <MapPin size={14} className="text-slate-400" />
+              <span>{evento.local_evento}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
