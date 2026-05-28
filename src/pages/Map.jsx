@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -70,6 +70,7 @@ function MapController({ center, zoom }) {
 }
 
 export default function Map() {
+  const markerRefs = useRef({});
   const [unidades, setUnidades] = useState([]);
   const [query, setQuery] = useState('');
   const [center, setCenter] = useState([-23.545, -47.44]);
@@ -148,6 +149,10 @@ export default function Map() {
           setTimeout(() => {
             setCenter([maisProxima.lat, maisProxima.lng]);
             setZoom(15);
+            const marker = markerRefs.current[maisProxima.id];
+            if (marker) {
+              marker.openPopup();
+            }
           }, 2000);
         }
       } else {
@@ -192,6 +197,10 @@ export default function Map() {
           setTimeout(() => {
             setCenter([maisProxima.lat, maisProxima.lng]);
             setZoom(15);
+            const marker = markerRefs.current[maisProxima.id];
+            if (marker) {
+              marker.openPopup();
+            }
           }, 2000);
         }
         setLoading(false);
@@ -306,7 +315,16 @@ export default function Map() {
               )}
 
               {unidades.map(unidade => (
-                <Marker key={unidade.id} position={[unidade.lat, unidade.lng]} icon={getUnitIcon(unidade.nome)}>
+                <Marker
+                  key={unidade.id}
+                  position={[unidade.lat, unidade.lng]}
+                  icon={getUnitIcon(unidade.nome)}
+                  ref={(el) => {
+                    if (el) {
+                      markerRefs.current[unidade.id] = el;
+                    }
+                  }}
+                >
                   <Popup>
                     <div className="min-w-[200px]">
                       {unidade.imagens && unidade.imagens.length > 0 && (
@@ -341,63 +359,71 @@ export default function Map() {
           </div>
 
           {/* Sidebar */}
-          <div className="glass-panel p-5 rounded-2xl shadow-lg border border-white/50 lg:col-span-1 h-[566px] overflow-y-auto custom-scrollbar">
-            <h2 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 sticky top-0 bg-white/95 backdrop-blur-sm z-10 flex items-center gap-2">
+          <div className="glass-panel p-5 rounded-2xl shadow-lg border border-white/50 lg:col-span-1 h-[566px] flex flex-col">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center gap-2 shrink-0">
               <Building2 size={18} className="text-blue-600" />
               Unidades mais próximas
             </h2>
             
-            {dataLoading ? (
-              <MapSidebarSkeleton />
-            ) : unidadesProximas.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-4xl mb-3 animate-float">🗺️</div>
-                <p className="text-slate-500 text-sm font-medium">
-                  Busque seu endereço ou use sua localização para ver as unidades mais próximas.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {unidadesProximas.map((u, index) => {
-                  const unitType = getUnitType(u.nome);
-                  return (
-                    <div
-                      key={u.id}
-                      className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-100 transition-all cursor-pointer animate-slide-up stagger-${Math.min(index + 1, 6)}`}
-                      onClick={() => {
-                        setCenter([u.lat, u.lng]);
-                        setZoom(16);
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                            unitType.color === 'red' ? 'bg-red-500' :
-                            unitType.color === 'orange' ? 'bg-amber-500' :
-                            unitType.color === 'green' ? 'bg-emerald-500' :
-                            'bg-blue-500'
+            <div className="overflow-y-auto custom-scrollbar flex-1 pr-1">
+              {dataLoading ? (
+                <MapSidebarSkeleton />
+              ) : unidadesProximas.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-3 animate-float">🗺️</div>
+                  <p className="text-slate-500 text-sm font-medium">
+                    Busque seu endereço ou use sua localização para ver as unidades mais próximas.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {unidadesProximas.map((u, index) => {
+                    const unitType = getUnitType(u.nome);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-100 transition-all cursor-pointer animate-slide-up stagger-${Math.min(index + 1, 6)}`}
+                        onClick={() => {
+                          setCenter([u.lat, u.lng]);
+                          setZoom(16);
+                          setTimeout(() => {
+                            const marker = markerRefs.current[u.id];
+                            if (marker) {
+                              marker.openPopup();
+                            }
+                          }, 100);
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
+                              unitType.color === 'red' ? 'bg-red-500' :
+                              unitType.color === 'orange' ? 'bg-amber-500' :
+                              unitType.color === 'green' ? 'bg-emerald-500' :
+                              'bg-blue-500'
+                            }`}>
+                              {unitType.label}
+                            </span>
+                            <h3 className="font-bold text-slate-800 text-sm">{u.nome}</h3>
+                          </div>
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                            index === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
                           }`}>
-                            {unitType.label}
+                            {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`}
                           </span>
-                          <h3 className="font-bold text-slate-800 text-sm">{u.nome}</h3>
                         </div>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-                          index === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`}
-                        </span>
+                        <p className="text-xs text-slate-500">{u.endereco}</p>
+                        {index === 0 && (
+                          <span className="inline-block mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            ✨ Mais próxima
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-500">{u.endereco}</p>
-                      {index === 0 && (
-                        <span className="inline-block mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          ✨ Mais próxima
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

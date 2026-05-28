@@ -4,7 +4,7 @@ import { supabase, checkAuth, logout, createUserWithProfile } from '../lib/supab
 import { 
   Megaphone, Users, Shield, LogOut, Calendar, Trash2, 
   Plus, ExternalLink, LayoutDashboard, Newspaper,
-  MapPin, Loader2, Star, Eye
+  MapPin, Loader2, Star, Eye, Building2
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -45,6 +45,19 @@ export default function Admin() {
   const [noticiasLoading, setNoticiasLoading] = useState(true);
   const [deleteNoticiaConfirm, setDeleteNoticiaConfirm] = useState(null);
   const [deleteNoticiaLoading, setDeleteNoticiaLoading] = useState(null);
+  // States para locais/unidades
+  const [unidadeNome, setUnidadeNome] = useState('');
+  const [unidadeTipo, setUnidadeTipo] = useState('UBS');
+  const [unidadeEndereco, setUnidadeEndereco] = useState('');
+  const [unidadeLat, setUnidadeLat] = useState('');
+  const [unidadeLng, setUnidadeLng] = useState('');
+  const [unidadeImagens, setUnidadeImagens] = useState([]);
+  const [unidadePublishLoading, setUnidadePublishLoading] = useState(false);
+  const [adminUnidades, setAdminUnidades] = useState([]);
+  const [adminUnidadesLoading, setAdminUnidadesLoading] = useState(true);
+  const [deleteUnidadeConfirm, setDeleteUnidadeConfirm] = useState(null);
+  const [deleteUnidadeLoading, setDeleteUnidadeLoading] = useState(null);
+  const [geocodeLoading, setGeocodeLoading] = useState(false);
 
   // Toast
   const [toast, setToast] = useState(null);
@@ -66,10 +79,11 @@ export default function Admin() {
     verifyAuth();
   }, [navigate]);
 
-  // Carregar eventos
+  // Carregar eventos, notícias e locais
   useEffect(() => {
     fetchEventos();
     fetchNoticias();
+    fetchUnidades();
   }, []);
 
   async function fetchEventos() {
@@ -92,6 +106,17 @@ export default function Admin() {
     
     if (!error) setNoticias(data || []);
     setNoticiasLoading(false);
+  }
+
+  async function fetchUnidades() {
+    setAdminUnidadesLoading(true);
+    const { data, error } = await supabase
+      .from('unidades')
+      .select('*')
+      .order('nome', { ascending: true });
+    
+    if (!error) setAdminUnidades(data || []);
+    setAdminUnidadesLoading(false);
   }
 
   const handleSubmit = async (e) => {
@@ -186,6 +211,144 @@ export default function Admin() {
     }
   };
 
+  const handleGeocode = async () => {
+    if (!unidadeEndereco) {
+      setToast({ message: "Por favor, digite o endereço primeiro.", type: "error" });
+      return;
+    }
+    setGeocodeLoading(true);
+
+    const trySearch = async (queryStr) => {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryStr)}`);
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (e) {
+        console.error("Geocode attempt error:", e);
+        return null;
+      }
+    };
+
+    // Remove acentuações para evitar problemas com buscas exatas
+    const normalizeText = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normalizedAddress = normalizeText(unidadeEndereco);
+    
+    let data = null;
+
+    // Tentativa 1: Endereço completo normalizado + Votorantim - SP
+    let query1 = normalizedAddress;
+    if (!query1.toLowerCase().includes('votorantim')) {
+      query1 += ', Votorantim - SP';
+    }
+    data = await trySearch(query1);
+
+    // Tentativa 2: Remove o número/número da casa (geralmente após a vírgula)
+    if ((!data || data.length === 0) && normalizedAddress.includes(',')) {
+      const streetPart = normalizedAddress.split(',')[0].trim();
+      const query2 = `${streetPart}, Votorantim - SP`;
+      data = await trySearch(query2);
+    }
+
+    // Tentativa 3: Converte abreviações comuns (Av., R., Prof.) para a forma por extenso
+    if (!data || data.length === 0) {
+      let streetPart = normalizedAddress.split(',')[0].trim();
+      streetPart = streetPart
+        .replace(/\bav\b\.?/gi, 'Avenida')
+        .replace(/\br\b\.?/gi, 'Rua')
+        .replace(/\bprof\b\.?/gi, 'Professor')
+        .replace(/\bdr\b\.?/gi, 'Doutor');
+      const query3 = `${streetPart}, Votorantim - SP`;
+      data = await trySearch(query3);
+    }
+
+    // Tentativa 4: Busca super relaxada (apenas o nome da rua sem prefixo, ex: "Moacir Oseias Guiti, Votorantim")
+    if (!data || data.length === 0) {
+      let streetNameOnly = normalizedAddress.split(',')[0].trim();
+      streetNameOnly = streetNameOnly.replace(/^(avenida|rua|av\.?|r\.?|travessa|alameda)\s+/gi, '');
+      const query4 = `${streetNameOnly}, Votorantim`;
+      data = await trySearch(query4);
+    }
+
+    if (data && data.length > 0) {
+      const foundLat = parseFloat(data[0].lat);
+      const foundLng = parseFloat(data[0].lon);
+      setUnidadeLat(foundLat.toString());
+      setUnidadeLng(foundLng.toString());
+      setToast({ message: "Coordenadas localizadas com sucesso!", type: "success" });
+    } else {
+      setToast({ 
+        message: "Endereço não localizado automaticamente. Insira as coordenadas manualmente ou simplifique o endereço (Ex: Av. Moacir Oseias Guiti).", 
+        type: "error" 
+      });
+    }
+    setGeocodeLoading(false);
+  };
+
+  const handlePublishUnidade = async (e) => {
+    e.preventDefault();
+    if (!unidadeLat || !unidadeLng) {
+      setToast({ message: "Por favor, defina a latitude e longitude.", type: "error" });
+      return;
+    }
+    setUnidadePublishLoading(true);
+
+    let finalNome = unidadeNome.trim();
+    if (unidadeTipo === 'ESF' && !finalNome.toLowerCase().startsWith('esf')) {
+      finalNome = `ESF ${finalNome}`;
+    } else if (unidadeTipo === 'UPA' && !finalNome.toLowerCase().startsWith('upa')) {
+      finalNome = `UPA ${finalNome}`;
+    } else if (unidadeTipo === 'Hospital' && !finalNome.toLowerCase().startsWith('hospital')) {
+      finalNome = `Hospital ${finalNome}`;
+    } else if (unidadeTipo === 'UBS') {
+      if (!finalNome.toLowerCase().startsWith('ubs') && 
+          !finalNome.toLowerCase().startsWith('esf') && 
+          !finalNome.toLowerCase().startsWith('upa') && 
+          !finalNome.toLowerCase().startsWith('hospital')) {
+        finalNome = `UBS ${finalNome}`;
+      }
+    }
+
+    try {
+      const { error } = await supabase.from('unidades').insert([
+        {
+          nome: finalNome,
+          endereco: unidadeEndereco,
+          lat: parseFloat(unidadeLat),
+          lng: parseFloat(unidadeLng),
+          imagens: unidadeImagens.length > 0 ? unidadeImagens : null
+        }
+      ]);
+
+      if (error) throw error;
+
+      setToast({ message: "Unidade cadastrada com sucesso!", type: "success" });
+      setUnidadeNome(''); setUnidadeEndereco(''); setUnidadeLat(''); setUnidadeLng(''); setUnidadeImagens([]);
+      fetchUnidades();
+      setActivePanel('gerenciar_unidades');
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao cadastrar unidade: " + err.message, type: "error" });
+    } finally {
+      setUnidadePublishLoading(false);
+    }
+  };
+
+  const handleDeleteUnidade = async (id) => {
+    setDeleteUnidadeLoading(id);
+    try {
+      const { error } = await supabase.from('unidades').delete().eq('id', id);
+      if (error) throw error;
+      setToast({ message: "Unidade excluída com sucesso!", type: "success" });
+      setDeleteUnidadeConfirm(null);
+      fetchUnidades();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao excluir unidade: " + err.message, type: "error" });
+    } finally {
+      setDeleteUnidadeLoading(null);
+    }
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
     setUserLoading(true);
@@ -219,6 +382,8 @@ export default function Admin() {
     { id: 'gerenciar', label: 'Gerenciar Eventos', icon: Calendar },
     { id: 'noticias', label: 'Publicar Notícia', icon: Newspaper },
     { id: 'gerenciar_noticias', label: 'Gerenciar Notícias', icon: Eye },
+    { id: 'unidades', label: 'Adicionar Unidade', icon: Building2 },
+    { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
     { id: 'usuarios', label: 'Cadastrar Usuário', icon: Users },
   ];
 
@@ -699,6 +864,225 @@ export default function Admin() {
                       )}
                     </button>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* Panel: Adicionar Unidade */}
+            {activePanel === 'unidades' && (
+              <div className="animate-fade-in">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                      <Building2 className="text-indigo-600" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Cadastrar nova unidade de saúde</h2>
+                      <p className="text-sm text-slate-500">Adicione uma UBS, ESF, Hospital ou UPA no mapa da cidade.</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handlePublishUnidade} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nome da unidade</label>
+                        <input
+                          type="text"
+                          required
+                          value={unidadeNome}
+                          onChange={e => setUnidadeNome(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          placeholder="Ex: Vila Nova, Jardim Serrano, Central"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tipo de unidade</label>
+                        <select
+                          value={unidadeTipo}
+                          onChange={e => setUnidadeTipo(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                        >
+                          <option value="UBS">🏥 UBS</option>
+                          <option value="ESF">💚 ESF</option>
+                          <option value="Hospital">🏨 Hospital</option>
+                          <option value="UPA">🚑 UPA</option>
+                        </select>
+                      </div>
+                    </div>
+                    {unidadeNome && (
+                      <p className="text-xs text-indigo-600 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100/50 animate-slide-down">
+                        💡 <strong>Salvo no mapa como:</strong> {
+                          unidadeTipo === 'ESF' && !unidadeNome.toLowerCase().startsWith('esf') ? `ESF ${unidadeNome}` :
+                          unidadeTipo === 'UPA' && !unidadeNome.toLowerCase().startsWith('upa') ? `UPA ${unidadeNome}` :
+                          unidadeTipo === 'Hospital' && !unidadeNome.toLowerCase().startsWith('hospital') ? `Hospital ${unidadeNome}` :
+                          unidadeTipo === 'UBS' && !unidadeNome.toLowerCase().startsWith('ubs') && !unidadeNome.toLowerCase().startsWith('esf') && !unidadeNome.toLowerCase().startsWith('upa') && !unidadeNome.toLowerCase().startsWith('hospital') ? `UBS ${unidadeNome}` :
+                          unidadeNome
+                        }
+                      </p>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Endereço completo</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          value={unidadeEndereco}
+                          onChange={e => setUnidadeEndereco(e.target.value)}
+                          className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          placeholder="Ex: Avenida São João, 200 - Centro"
+                        />
+                        <button
+                          type="button"
+                          disabled={geocodeLoading}
+                          onClick={handleGeocode}
+                          className="px-4 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-60 shrink-0 animate-transition"
+                        >
+                          {geocodeLoading ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                          <span>Buscar Coordenadas</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Latitude</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={unidadeLat}
+                          onChange={e => setUnidadeLat(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          placeholder="Ex: -23.5451"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Longitude</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={unidadeLng}
+                          onChange={e => setUnidadeLng(e.target.value)}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          placeholder="Ex: -47.4412"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="pt-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Imagens do local (opcional)</label>
+                      <ImageUpload
+                        images={unidadeImagens}
+                        onImagesChange={setUnidadeImagens}
+                        maxImages={10}
+                        folder="unidades"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={unidadePublishLoading}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {unidadePublishLoading ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Salvando local...
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={18} />
+                          Cadastrar local no mapa
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Panel: Gerenciar Unidades */}
+            {activePanel === 'gerenciar_unidades' && (
+              <div className="animate-fade-in">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                      <MapPin className="text-indigo-600" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Gerenciar Unidades de Saúde</h2>
+                      <p className="text-sm text-slate-500">{adminUnidades.length} local(is) cadastrado(s)</p>
+                    </div>
+                  </div>
+
+                  {adminUnidadesLoading ? (
+                    <div className="text-center py-10 text-slate-500">
+                      <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                      Carregando locais...
+                    </div>
+                  ) : adminUnidades.length === 0 ? (
+                    <div className="text-center py-10">
+                      <div className="text-4xl mb-3">📍</div>
+                      <p className="text-slate-500 font-medium">Nenhum local cadastrado no mapa ainda.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+                      {adminUnidades.map(unidade => (
+                        <div key={unidade.id} className="bg-white border border-slate-100 rounded-xl p-4 hover:shadow-sm transition-all group">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                              {unidade.imagens && unidade.imagens.length > 0 ? (
+                                <img src={unidade.imagens[0]} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 flex-shrink-0">
+                                  <Building2 size={24} />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-slate-800 text-sm truncate">{unidade.nome}</h4>
+                                <p className="text-xs text-slate-500 line-clamp-1">{unidade.endereco}</p>
+                                <span className="text-[10px] text-slate-400 mt-1 block font-mono">
+                                  Lat: {unidade.lat} | Lng: {unidade.lng}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex-shrink-0">
+                              {deleteUnidadeConfirm === unidade.id ? (
+                                <div className="flex items-center gap-2 animate-fade-in">
+                                  <button
+                                    onClick={() => handleDeleteUnidade(unidade.id)}
+                                    disabled={deleteUnidadeLoading === unidade.id}
+                                    className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                                  >
+                                    {deleteUnidadeLoading === unidade.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                    Confirmar
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteUnidadeConfirm(null)}
+                                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setDeleteUnidadeConfirm(unidade.id)}
+                                  className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                  title="Excluir local"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
