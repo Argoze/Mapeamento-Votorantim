@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
+import { Search, Navigation, Building2, Stethoscope, Cross, Siren } from 'lucide-react';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import StatsCard from '../components/StatsCard';
+import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 
 // Corrige o ícone padrão do Leaflet no React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -13,12 +17,52 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Ícones customizados por tipo de unidade
+function createCustomIcon(color, emoji) {
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 36px; height: 36px; 
+      background: ${color}; 
+      border-radius: 50% 50% 50% 4px; 
+      transform: rotate(-45deg);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      border: 2.5px solid white;
+    "><span style="transform: rotate(45deg); font-size: 16px;">${emoji}</span></div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+    popupAnchor: [0, -36],
+  });
+}
+
+const iconUBS = createCustomIcon('#2563eb', '🏥');
+const iconESF = createCustomIcon('#059669', '💚');
+const iconHospital = createCustomIcon('#dc2626', '🏨');
+const iconUPA = createCustomIcon('#f59e0b', '🚑');
+
+function getUnitIcon(nome) {
+  const n = nome.toLowerCase();
+  if (n.includes('hospital')) return iconHospital;
+  if (n.includes('upa')) return iconUPA;
+  if (n.includes('esf')) return iconESF;
+  return iconUBS;
+}
+
+function getUnitType(nome) {
+  const n = nome.toLowerCase();
+  if (n.includes('hospital')) return { label: 'Hospital', color: 'red' };
+  if (n.includes('upa')) return { label: 'UPA', color: 'orange' };
+  if (n.includes('esf')) return { label: 'ESF', color: 'green' };
+  return { label: 'UBS', color: 'blue' };
+}
+
 // Componente auxiliar para ajustar o mapa
 function MapController({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
     if (center) {
-      map.setView(center, zoom, { animate: true });
+      map.setView(center, zoom, { animate: true, duration: 1.2 });
     }
   }, [center, zoom, map]);
   return null;
@@ -31,6 +75,7 @@ export default function Map() {
   const [zoom, setZoom] = useState(13);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [unidadesProximas, setUnidadesProximas] = useState([]);
 
@@ -42,6 +87,7 @@ export default function Map() {
       } else {
         setUnidades(data || []);
       }
+      setDataLoading(false);
     }
     fetchUnidades();
   }, []);
@@ -139,38 +185,51 @@ export default function Map() {
         }
         setLoading(false);
       },
-      (err) => {
+      () => {
         setError('Não foi possível obter sua localização. Permita o acesso.');
         setLoading(false);
       }
     );
   };
 
-  return (
-    <div className="min-h-screen relative overflow-x-hidden p-4 sm:p-6 lg:p-8">
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-50 to-transparent -z-10"></div>
+  // Contadores de unidades por tipo
+  const stats = {
+    ubs: unidades.filter(u => !u.nome.toLowerCase().includes('esf') && !u.nome.toLowerCase().includes('hospital') && !u.nome.toLowerCase().includes('upa')).length,
+    esf: unidades.filter(u => u.nome.toLowerCase().includes('esf')).length,
+    hospital: unidades.filter(u => u.nome.toLowerCase().includes('hospital')).length,
+    upa: unidades.filter(u => u.nome.toLowerCase().includes('upa')).length,
+  };
 
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-10 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-6">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
-              <span className="text-gradient">Saúde Votorantim</span>
-            </h1>
-            <p className="text-slate-500 text-lg">Encontre a unidade básica de saúde mais próxima de você.</p>
-          </div>
-          <div className="flex flex-col gap-3 items-center sm:items-end">
-            <div className="bg-blue-50 px-4 py-2 rounded-full border border-blue-100 text-blue-800 font-semibold text-sm shadow-sm whitespace-nowrap">
-              Rede de atendimento municipal
-            </div>
-            <Link to="/eventos" className="flex items-center gap-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl transition-colors shadow-sm">
-              Ver alertas e campanhas
-            </Link>
-          </div>
+  return (
+    <div className="min-h-screen relative overflow-x-hidden bg-slate-50">
+      <Navbar />
+
+      {/* Background decoration */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10"></div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-4">
+        {/* Header */}
+        <header className="mb-8 animate-slide-up">
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 mb-3">
+            <span className="text-gradient">Saúde Votorantim</span>
+          </h1>
+          <p className="text-slate-500 text-lg max-w-xl">
+            Encontre a unidade básica de saúde mais próxima de você na rede municipal.
+          </p>
         </header>
 
-        <div className="glass-panel p-6 sm:p-8 rounded-3xl shadow-lg border border-white mb-10">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="w-full md:w-2/4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <StatsCard icon={Building2} value={stats.ubs} label="UBS" color="blue" delay={0} />
+          <StatsCard icon={Stethoscope} value={stats.esf} label="ESF" color="green" delay={100} />
+          <StatsCard icon={Cross} value={stats.hospital} label="Hospital" color="red" delay={200} />
+          <StatsCard icon={Siren} value={stats.upa} label="UPA" color="orange" delay={300} />
+        </div>
+
+        {/* Search Bar */}
+        <div className="glass-panel p-5 sm:p-6 rounded-2xl shadow-lg border border-white/50 mb-8 animate-slide-up" style={{ animationDelay: '0.15s' }}>
+          <div className="flex flex-col md:flex-row gap-3 items-end">
+            <div className="w-full md:flex-1">
               <label htmlFor="endereco" className="block text-sm font-bold text-slate-700 mb-2">
                 Qual o seu endereço?
               </label>
@@ -179,35 +238,43 @@ export default function Map() {
                 id="endereco"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Ex: rua João Walter, Centro"
-                className="w-full px-5 py-4 text-slate-800 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-inner text-lg"
+                className="w-full px-5 py-3.5 text-slate-800 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all shadow-sm text-base"
               />
             </div>
-            <div className="w-full md:w-1/4">
+            <div className="w-full md:w-auto flex gap-3">
               <button
+                id="btn-search"
                 onClick={handleSearch}
                 disabled={loading}
-                className="w-full h-[60px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2"
+                className="flex-1 md:flex-none md:px-8 h-[52px] bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-60"
               >
+                <Search size={18} />
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
-            </div>
-            <div className="w-full md:w-1/4">
               <button
+                id="btn-geolocation"
                 onClick={handleGeolocation}
                 disabled={loading}
-                className="w-full h-[60px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm border border-slate-300 transition-all flex justify-center items-center gap-2"
+                className="flex-1 md:flex-none md:px-6 h-[52px] bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-200 transition-all flex justify-center items-center gap-2 disabled:opacity-60"
               >
-                Usar localização
+                <Navigation size={18} />
+                <span className="hidden sm:inline">Localização</span>
               </button>
             </div>
           </div>
-          {error && <p className="text-red-500 mt-3 text-sm font-semibold">{error}</p>}
+          {error && (
+            <div className="mt-3 bg-red-50 text-red-600 text-sm font-semibold p-3 rounded-xl border border-red-100 animate-slide-down">
+              {error}
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 glass-panel p-2 rounded-3xl shadow-lg border border-white relative">
-            <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '20px' }}>
+        {/* Map + Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <div className="lg:col-span-2 glass-panel p-2 rounded-2xl shadow-lg border border-white/50 relative">
+            <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '16px' }}>
               <TileLayer
                 attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -215,53 +282,110 @@ export default function Map() {
               <MapController center={center} zoom={zoom} />
               
               {userLocation && (
-                <CircleMarker center={userLocation} pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.5 }} radius={10}>
+                <CircleMarker center={userLocation} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3 }} radius={12}>
                   <Popup>
-                    <b>Você está aqui</b>
+                    <div className="text-center">
+                      <p className="font-bold text-blue-700 text-sm">📍 Você está aqui</p>
+                    </div>
                   </Popup>
                 </CircleMarker>
               )}
 
               {unidades.map(unidade => (
-                <Marker key={unidade.id} position={[unidade.lat, unidade.lng]}>
+                <Marker key={unidade.id} position={[unidade.lat, unidade.lng]} icon={getUnitIcon(unidade.nome)}>
                   <Popup>
-                    <b>{unidade.nome}</b><br />{unidade.endereco}
+                    <div className="min-w-[200px]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
+                          getUnitType(unidade.nome).color === 'red' ? 'bg-red-500' :
+                          getUnitType(unidade.nome).color === 'orange' ? 'bg-amber-500' :
+                          getUnitType(unidade.nome).color === 'green' ? 'bg-emerald-500' :
+                          'bg-blue-500'
+                        }`}>
+                          {getUnitType(unidade.nome).label}
+                        </span>
+                      </div>
+                      <p className="font-bold text-slate-800 text-sm">{unidade.nome}</p>
+                      <p className="text-slate-500 text-xs mt-0.5">{unidade.endereco}</p>
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${unidade.lat},${unidade.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <Navigation size={12} />
+                        Como chegar
+                      </a>
+                    </div>
                   </Popup>
                 </Marker>
               ))}
             </MapContainer>
           </div>
 
-          <div className="glass-panel p-6 rounded-3xl shadow-lg border border-white lg:col-span-1 h-[566px] overflow-y-auto">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2 sticky top-0 bg-white/90 backdrop-blur-sm z-10">
+          {/* Sidebar */}
+          <div className="glass-panel p-5 rounded-2xl shadow-lg border border-white/50 lg:col-span-1 h-[566px] overflow-y-auto custom-scrollbar">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 sticky top-0 bg-white/95 backdrop-blur-sm z-10 flex items-center gap-2">
+              <Building2 size={18} className="text-blue-600" />
               Unidades mais próximas
             </h2>
             
-            {unidadesProximas.length === 0 ? (
-              <p className="text-slate-500 text-sm mt-4 text-center">
-                Busque seu endereço ou use sua localização para ver a lista.
-              </p>
+            {dataLoading ? (
+              <MapSidebarSkeleton />
+            ) : unidadesProximas.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3 animate-float">🗺️</div>
+                <p className="text-slate-500 text-sm font-medium">
+                  Busque seu endereço ou use sua localização para ver as unidades mais próximas.
+                </p>
+              </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {unidadesProximas.map((u, index) => (
-                  <div key={u.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
-                    setCenter([u.lat, u.lng]);
-                    setZoom(16);
-                  }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-bold text-slate-800 text-sm">{u.nome}</h3>
-                      <span className={`text-xs font-bold px-2 py-1 rounded-lg ${index === 0 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`}
-                      </span>
+              <div className="flex flex-col gap-3">
+                {unidadesProximas.map((u, index) => {
+                  const unitType = getUnitType(u.nome);
+                  return (
+                    <div
+                      key={u.id}
+                      className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-100 transition-all cursor-pointer animate-slide-up stagger-${Math.min(index + 1, 6)}`}
+                      onClick={() => {
+                        setCenter([u.lat, u.lng]);
+                        setZoom(16);
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
+                            unitType.color === 'red' ? 'bg-red-500' :
+                            unitType.color === 'orange' ? 'bg-amber-500' :
+                            unitType.color === 'green' ? 'bg-emerald-500' :
+                            'bg-blue-500'
+                          }`}>
+                            {unitType.label}
+                          </span>
+                          <h3 className="font-bold text-slate-800 text-sm">{u.nome}</h3>
+                        </div>
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
+                          index === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {u.distancia < 1 ? `${(u.distancia * 1000).toFixed(0)}m` : `${u.distancia.toFixed(1)}km`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500">{u.endereco}</p>
+                      {index === 0 && (
+                        <span className="inline-block mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          ✨ Mais próxima
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500">{u.endereco}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, checkAuth } from '../lib/supabase';
+import { Heart, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,55 +56,95 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-4">
-      <div className="glass-panel w-full max-w-md p-8 rounded-2xl shadow-xl border border-white">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Acesso restrito</h1>
-          <p className="text-slate-500 text-sm">Portal exclusivo para profissionais da saúde e ADM da prefeitura de Votorantim.</p>
-        </div>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 animate-gradient p-4 relative overflow-hidden">
+      {/* Decorative shapes */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-indigo-400/20 rounded-full blur-3xl"></div>
+      <div className="absolute top-[30%] right-[15%] w-[200px] h-[200px] bg-cyan-400/10 rounded-full blur-2xl animate-float"></div>
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">E-mail corporativo</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-              placeholder="nome@votorantim.sp.gov.br"
-            />
-          </div>
+      <div className="w-full max-w-md relative z-10 animate-scale-in">
+        {/* Back link */}
+        <Link to="/" className="inline-flex items-center gap-2 text-white/80 hover:text-white font-medium text-sm mb-6 transition-colors">
+          <ArrowLeft size={16} />
+          Voltar para a página pública
+        </Link>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Senha</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
-              {error}
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 p-8 sm:p-10">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="h-16 w-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Heart className="h-8 w-8 text-white" fill="white" />
             </div>
-          )}
+            <h1 className="text-2xl font-extrabold text-slate-900 mb-1">Acesso Restrito</h1>
+            <p className="text-slate-500 text-sm">
+              Portal exclusivo para profissionais da saúde e administradores da prefeitura.
+            </p>
+          </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all disabled:opacity-70"
-          >
-            {loading ? 'Autenticando...' : 'Entrar no sistema'}
-          </button>
-        </form>
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">E-mail corporativo</label>
+              <input 
+                type="email" 
+                id="login-email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm"
+                placeholder="nome@votorantim.sp.gov.br"
+              />
+            </div>
 
-        <div className="mt-6 text-center">
-          <Link to="/" className="text-sm text-blue-600 hover:underline font-medium">Voltar para a página pública</Link>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Senha</label>
+              <div className="relative">
+                <input 
+                  type={showPassword ? 'text' : 'password'}
+                  id="login-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all text-sm pr-12"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 text-red-600 text-sm font-semibold p-3.5 rounded-xl border border-red-100 animate-slide-down">
+                {error}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              id="btn-login"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Autenticando...
+                </>
+              ) : (
+                'Entrar no sistema'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400">
+              Sistema protegido • Apenas usuários autorizados
+            </p>
+          </div>
         </div>
       </div>
     </div>
