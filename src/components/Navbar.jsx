@@ -54,6 +54,7 @@ export default function Navbar() {
               <Link
                 key={to}
                 to={to}
+                aria-current={isActive(to) ? 'page' : undefined}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                   isActive(to)
                     ? 'bg-blue-50 text-blue-700 shadow-sm'
@@ -70,6 +71,9 @@ export default function Navbar() {
           <button
             id="mobile-menu-toggle"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-menu-panel"
+            aria-label={mobileMenuOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
             className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
           >
             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -78,13 +82,14 @@ export default function Navbar() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden pb-4 animate-slide-down">
+          <div id="mobile-menu-panel" className="md:hidden pb-4 animate-slide-down">
             <div className="flex flex-col gap-1 bg-white/95 backdrop-blur-xl rounded-2xl p-3 shadow-xl border border-slate-100">
               {links.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
+                  aria-current={isActive(to) ? 'page' : undefined}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                     isActive(to)
                       ? 'bg-blue-50 text-blue-700'

@@ -7,17 +7,17 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function checkAuth() {
     const { data: { session }, error } = await supabase.auth.getSession();
-    
+
     if (error || !session) {
         return null;
     }
-    
+
     const { data: perfil } = await supabase
         .from('perfis')
         .select('role')
         .eq('id', session.user.id)
         .single();
-        
+
     return {
         user: session.user,
         role: perfil ? perfil.role : null
@@ -29,41 +29,72 @@ export async function logout() {
     window.location.href = '/login';
 }
 
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-// Cliente secundário usando a Service Role Key (chave mestra) para driblar o bloqueio de e-mails
-export const supabaseAdminAuth = createClient(
-  supabaseUrl, 
-  supabaseServiceKey || supabaseKey, 
-  { auth: { persistSession: false, autoRefreshToken: false } }
-);
-
-// Função para o ADM criar novos usuários
+// Função para o ADM criar novos usuários.
+//
+// IMPORTANTE (segurança): antes, esta função usava a Service Role Key do Supabase
+// diretamente aqui no cliente para poder chamar auth.admin.createUser(). Como toda
+// variável VITE_* é embutida no bundle JS público, isso expunha a chave mestra do
+// projeto (que ignora todas as políticas de RLS) a qualquer pessoa que inspecionasse
+// o site publicado.
+//
+// A criação de usuário agora acontece inteiramente do lado do servidor, em uma
+// Supabase Edge Function (supabase/functions/create-user). A Service Role Key fica
+// só nos secrets dessa função (nunca em uma env VITE_*), e a própria função confere
+// que quem está chamando é um usuário autenticado com papel 'adm' antes de criar
+// qualquer conta nova. Ver supabase/functions/create-user/index.ts e o README para
+// instruções de deploy e configuração dos secrets.
 export async function createUserWithProfile(email, password, role, nome) {
-  if (!supabaseServiceKey) {
-    throw new Error("VITE_SUPABASE_SERVICE_ROLE_KEY não encontrada no .env! Ela é necessária para burlar o limite de e-mails do plano gratuito.");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("Sessão expirada. Faça login novamente.");
   }
 
-  // 1. Criar na tabela de auth usando a API de Admin (já confirmando o email automaticamente)
-  const { data: authData, error: authError } = await supabaseAdminAuth.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true // <- ISSO AQUI FAZ O MILAGRE: Não envia email e dribla o Rate Limit!
+  const { data, error } = await supabase.functions.invoke('create-user', {
+    body: { email, password, role, nome },
   });
 
-  if (authError) throw authError;
-  if (!authData.user) throw new Error("Erro desconhecido ao criar usuário.");
-
-  // 2. Criar o perfil usando a sessão principal (que tem permissão ADM)
-  const { error: profileError } = await supabase.from('perfis').insert({
-    id: authData.user.id,
-    role,
-    nome
-  });
-
-  if (profileError) {
-    throw new Error("Usuário criado no sistema, mas não foi possível vincular o perfil: " + profileError.message);
+  if (error) {
+    let message = error.message || "Erro ao criar usuário.";
+    try {
+      if (error.context && typeof error.context.json === 'function') {
+        const body = await error.context.json();
+        if (body?.error) message = body.error;
+      }
+    } catch {
+      // corpo do erro não era JSON válido; mantém a mensagem genérica
+    }
+    throw new Error(message);
   }
 
-  return authData.user;
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  return data.user;
+}
+
+// Registra uma ação (criar/editar/excluir) na trilha de auditoria — quem fez o quê
+// e quando, para governança e conformidade com a LGPD (ver setup_database.sql,
+// seção "trilha de auditoria", e a tabela public.auditoria).
+//
+// Nunca lança erro: se o registro de auditoria falhar (ex.: a tabela ainda não foi
+// criada no banco, porque a atualização em setup_database.sql ainda não foi
+// aplicada), a ação principal do usuário já foi concluída e não deve ser desfeita
+// ou bloqueada por causa disso — só avisamos no console.
+export async function registrarAuditoria({ usuarioId, usuarioEmail, acao, entidade, entidadeId, entidadeTitulo }) {
+  try {
+    const { error } = await supabase.from('auditoria').insert({
+      usuario_id: usuarioId,
+      usuario_email: usuarioEmail,
+      acao,
+      entidade,
+      entidade_id: entidadeId ?? null,
+      entidade_titulo: entidadeTitulo ?? null,
+    });
+    if (error) {
+      console.warn('Não foi possível registrar na trilha de auditoria (a ação principal foi concluída normalmente):', error.message);
+    }
+  } catch (err) {
+    console.warn('Não foi possível registrar na trilha de auditoria (a ação principal foi concluída normalmente):', err);
+  }
 }

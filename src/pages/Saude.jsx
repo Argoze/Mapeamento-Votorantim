@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase, checkAuth, logout } from '../lib/supabase';
+import { supabase, checkAuth, logout, registrarAuditoria } from '../lib/supabase';
 import {
-  Megaphone, Stethoscope, LogOut, Calendar, Trash2,
+  Megaphone, Stethoscope, LogOut, Calendar, Trash2, Pencil, XCircle,
   Plus, ExternalLink, MapPin, Loader2, Newspaper, Star, Eye
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
+import PublishPreviewModal from '../components/PublishPreviewModal';
 
 export default function Saude() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -19,6 +20,10 @@ export default function Saude() {
   const [eventoImagens, setEventoImagens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Edição de evento
+  const [editingEventoId, setEditingEventoId] = useState(null);
+  const [showEventoPreview, setShowEventoPreview] = useState(false);
 
   // Eventos do usuário
   const [meusEventos, setMeusEventos] = useState([]);
@@ -37,6 +42,10 @@ export default function Saude() {
   const [noticiasLoading, setNoticiasLoading] = useState(true);
   const [deleteNoticiaConfirm, setDeleteNoticiaConfirm] = useState(null);
   const [deleteNoticiaLoading, setDeleteNoticiaLoading] = useState(null);
+
+  // Edição de notícia
+  const [editingNoticiaId, setEditingNoticiaId] = useState(null);
+  const [showNoticiaPreview, setShowNoticiaPreview] = useState(false);
 
   // Toast
   const [toast, setToast] = useState(null);
@@ -64,6 +73,7 @@ export default function Saude() {
       fetchMeusEventos();
       fetchMinhasNoticias();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   async function fetchMeusEventos() {
@@ -90,27 +100,44 @@ export default function Saude() {
     setNoticiasLoading(false);
   }
 
-  const handleSubmit = async (e) => {
+  // ---------- Evento: abrir preview / confirmar / editar / cancelar ----------
+
+  const openEventoPreview = (e) => {
     e.preventDefault();
+    setShowEventoPreview(true);
+  };
+
+  const confirmPublishEvento = async () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('eventos').insert([
-        {
-          titulo: titulo,
-          descricao: desc,
-          data_evento: dataEvento,
-          local_evento: local,
-          tipo: tipo,
-          imagens: eventoImagens.length > 0 ? eventoImagens : null,
-          criado_por: currentUser.id
-        }
-      ]);
+      const payload = {
+        titulo: titulo,
+        descricao: desc,
+        data_evento: dataEvento,
+        local_evento: local,
+        tipo: tipo,
+        imagens: eventoImagens.length > 0 ? eventoImagens : null,
+      };
+
+      let error, data;
+      if (editingEventoId) {
+        ({ error } = await supabase.from('eventos').update(payload).eq('id', editingEventoId));
+      } else {
+        ({ data, error } = await supabase.from('eventos').insert([{ ...payload, criado_por: currentUser.id }]).select('id').single());
+      }
 
       if (error) throw error;
 
-      setToast({ message: "Campanha publicada com sucesso!", type: "success" });
-      setTitulo(''); setDesc(''); setDataEvento(''); setLocal(''); setTipo('Informativo'); setEventoImagens([]);
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: editingEventoId ? 'editar' : 'criar', entidade: 'evento',
+        entidadeId: editingEventoId || data?.id, entidadeTitulo: payload.titulo,
+      });
+
+      setToast({ message: editingEventoId ? "Evento atualizado com sucesso!" : "Campanha publicada com sucesso!", type: "success" });
+      resetEventoForm();
+      setShowEventoPreview(false);
       fetchMeusEventos();
     } catch (err) {
       console.error(err);
@@ -120,13 +147,35 @@ export default function Saude() {
     }
   };
 
+  const resetEventoForm = () => {
+    setTitulo(''); setDesc(''); setDataEvento(''); setLocal(''); setTipo('Informativo'); setEventoImagens([]);
+    setEditingEventoId(null);
+  };
+
+  const handleEditEvento = (evento) => {
+    setTitulo(evento.titulo);
+    setDesc(evento.descricao);
+    setDataEvento(evento.data_evento);
+    setLocal(evento.local_evento);
+    setTipo(evento.tipo);
+    setEventoImagens(evento.imagens || []);
+    setEditingEventoId(evento.id);
+    setActiveTab('publicar');
+  };
+
   const handleDeleteEvento = async (id) => {
     setDeleteLoading(id);
+    const eventoAlvo = meusEventos.find(e => e.id === id);
     try {
       const { error } = await supabase.from('eventos').delete().eq('id', id);
       if (error) throw error;
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'excluir', entidade: 'evento', entidadeId: id, entidadeTitulo: eventoAlvo?.titulo,
+      });
       setToast({ message: "Evento excluído com sucesso!", type: "success" });
       setShowDeleteConfirm(null);
+      if (editingEventoId === id) resetEventoForm();
       fetchMeusEventos();
     } catch (err) {
       console.error(err);
@@ -136,27 +185,44 @@ export default function Saude() {
     }
   };
 
-  const handlePublishNoticia = async (e) => {
+  // ---------- Notícia: abrir preview / confirmar / editar / cancelar ----------
+
+  const openNoticiaPreview = (e) => {
     e.preventDefault();
+    setShowNoticiaPreview(true);
+  };
+
+  const confirmPublishNoticia = async () => {
     setNoticiaLoading(true);
 
     try {
-      const { error } = await supabase.from('noticias').insert([
-        {
-          titulo: noticiaTitle,
-          resumo: noticiaResumo,
-          conteudo: noticiaConteudo || null,
-          imagem_url: noticiaImagemUrl.length > 0 ? noticiaImagemUrl[0] : null,
-          imagens: noticiaImagemUrl.length > 0 ? noticiaImagemUrl : null,
-          destaque: noticiaDestaque,
-          criado_por: currentUser.id
-        }
-      ]);
+      const payload = {
+        titulo: noticiaTitle,
+        resumo: noticiaResumo,
+        conteudo: noticiaConteudo || null,
+        imagem_url: noticiaImagemUrl.length > 0 ? noticiaImagemUrl[0] : null,
+        imagens: noticiaImagemUrl.length > 0 ? noticiaImagemUrl : null,
+        destaque: noticiaDestaque,
+      };
+
+      let error, data;
+      if (editingNoticiaId) {
+        ({ error } = await supabase.from('noticias').update(payload).eq('id', editingNoticiaId));
+      } else {
+        ({ data, error } = await supabase.from('noticias').insert([{ ...payload, criado_por: currentUser.id }]).select('id').single());
+      }
 
       if (error) throw error;
 
-      setToast({ message: "Notícia publicada com sucesso!", type: "success" });
-      setNoticiaTitle(''); setNoticiaResumo(''); setNoticiaConteudo(''); setNoticiaImagemUrl([]); setNoticiaDestaque(false);
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: editingNoticiaId ? 'editar' : 'criar', entidade: 'noticia',
+        entidadeId: editingNoticiaId || data?.id, entidadeTitulo: payload.titulo,
+      });
+
+      setToast({ message: editingNoticiaId ? "Notícia atualizada com sucesso!" : "Notícia publicada com sucesso!", type: "success" });
+      resetNoticiaForm();
+      setShowNoticiaPreview(false);
       fetchMinhasNoticias();
     } catch (err) {
       console.error(err);
@@ -166,13 +232,34 @@ export default function Saude() {
     }
   };
 
+  const resetNoticiaForm = () => {
+    setNoticiaTitle(''); setNoticiaResumo(''); setNoticiaConteudo(''); setNoticiaImagemUrl([]); setNoticiaDestaque(false);
+    setEditingNoticiaId(null);
+  };
+
+  const handleEditNoticia = (noticia) => {
+    setNoticiaTitle(noticia.titulo);
+    setNoticiaResumo(noticia.resumo);
+    setNoticiaConteudo(noticia.conteudo || '');
+    setNoticiaImagemUrl(noticia.imagens && noticia.imagens.length > 0 ? noticia.imagens : (noticia.imagem_url ? [noticia.imagem_url] : []));
+    setNoticiaDestaque(!!noticia.destaque);
+    setEditingNoticiaId(noticia.id);
+    setActiveTab('noticia');
+  };
+
   const handleDeleteNoticia = async (id) => {
     setDeleteNoticiaLoading(id);
+    const noticiaAlvo = minhasNoticias.find(n => n.id === id);
     try {
       const { error } = await supabase.from('noticias').delete().eq('id', id);
       if (error) throw error;
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'excluir', entidade: 'noticia', entidadeId: id, entidadeTitulo: noticiaAlvo?.titulo,
+      });
       setToast({ message: "Notícia excluída com sucesso!", type: "success" });
       setDeleteNoticiaConfirm(null);
+      if (editingNoticiaId === id) resetNoticiaForm();
       fetchMinhasNoticias();
     } catch (err) {
       console.error(err);
@@ -190,9 +277,9 @@ export default function Saude() {
   if (!currentUser) return null;
 
   const tabs = [
-    { id: 'publicar', label: 'Publicar Evento', icon: Megaphone },
+    { id: 'publicar', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
     { id: 'meus', label: `Meus Eventos (${meusEventos.length})`, icon: Calendar },
-    { id: 'noticia', label: 'Publicar Notícia', icon: Newspaper },
+    { id: 'noticia', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
     { id: 'minhas_noticias', label: `Minhas Notícias (${minhasNoticias.length})`, icon: Eye },
   ];
 
@@ -206,6 +293,26 @@ export default function Saude() {
         isOpen={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onConfirm={(formatted) => setDataEvento(formatted)}
+      />
+
+      {/* Preview Modals */}
+      <PublishPreviewModal
+        isOpen={showEventoPreview}
+        onClose={() => setShowEventoPreview(false)}
+        onConfirm={confirmPublishEvento}
+        type="evento"
+        loading={loading}
+        isEditing={!!editingEventoId}
+        data={{ titulo, descricao: desc, data_evento: dataEvento, local_evento: local, tipo, imagens: eventoImagens }}
+      />
+      <PublishPreviewModal
+        isOpen={showNoticiaPreview}
+        onClose={() => setShowNoticiaPreview(false)}
+        onConfirm={confirmPublishNoticia}
+        type="noticia"
+        loading={noticiaLoading}
+        isEditing={!!editingNoticiaId}
+        data={{ titulo: noticiaTitle, resumo: noticiaResumo, conteudo: noticiaConteudo, imagens: noticiaImagemUrl, destaque: noticiaDestaque }}
       />
 
       {/* Navbar */}
@@ -266,17 +373,28 @@ export default function Saude() {
             {/* Tab: Publicar Evento */}
             {activeTab === 'publicar' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
-                <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                  <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                    <Megaphone className="text-blue-600" size={20} />
+                <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingEventoId ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                      {editingEventoId ? <Pencil className="text-amber-600" size={20} /> : <Megaphone className="text-blue-600" size={20} />}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">{editingEventoId ? 'Editar alerta / campanha' : 'Publicar novo alerta / campanha'}</h2>
+                      <p className="text-sm text-slate-500">{editingEventoId ? 'Altere os campos e confirme para salvar.' : 'O evento será publicado no portal público.'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-800">Publicar novo alerta / campanha</h2>
-                    <p className="text-sm text-slate-500">O evento será publicado no portal público.</p>
-                  </div>
+                  {editingEventoId && (
+                    <button
+                      type="button"
+                      onClick={resetEventoForm}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors shrink-0"
+                    >
+                      <XCircle size={14} /> Cancelar edição
+                    </button>
+                  )}
                 </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
+
+                <form onSubmit={openEventoPreview} className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título</label>
                     <input type="text" required value={titulo} onChange={e => setTitulo(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Ex: Campanha de Vacinação contra Gripe" />
@@ -321,17 +439,8 @@ export default function Saude() {
                   />
 
                   <button type="submit" disabled={loading || !dataEvento} className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                    {loading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Publicando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={18} />
-                        Publicar campanha
-                      </>
-                    )}
+                    {editingEventoId ? <Pencil size={18} /> : <Plus size={18} />}
+                    {editingEventoId ? 'Revisar alterações' : 'Revisar e publicar'}
                   </button>
                 </form>
               </div>
@@ -366,7 +475,7 @@ export default function Saude() {
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                     {meusEventos.map(evento => (
-                      <div key={evento.id} className="bg-white border border-slate-100 rounded-xl p-4 hover:shadow-sm transition-all group">
+                      <div key={evento.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingEventoId === evento.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
@@ -386,8 +495,8 @@ export default function Saude() {
                               )}
                             </div>
                           </div>
-                          
-                          <div className="flex-shrink-0">
+
+                          <div className="flex-shrink-0 flex items-center gap-1.5">
                             {showDeleteConfirm === evento.id ? (
                               <div className="flex items-center gap-2 animate-fade-in">
                                 <button
@@ -406,13 +515,22 @@ export default function Saude() {
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => setShowDeleteConfirm(evento.id)}
-                                className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
-                                title="Excluir evento"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleEditEvento(evento)}
+                                  className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
+                                  title="Editar evento"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button
+                                  onClick={() => setShowDeleteConfirm(evento.id)}
+                                  className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                  title="Excluir evento"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -426,17 +544,28 @@ export default function Saude() {
             {/* Tab: Publicar Notícia */}
             {activeTab === 'noticia' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
-                <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                  <div className="h-10 w-10 bg-cyan-100 rounded-xl flex items-center justify-center">
-                    <Newspaper className="text-cyan-600" size={20} />
+                <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingNoticiaId ? 'bg-amber-100' : 'bg-cyan-100'}`}>
+                      {editingNoticiaId ? <Pencil className="text-amber-600" size={20} /> : <Newspaper className="text-cyan-600" size={20} />}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">{editingNoticiaId ? 'Editar Notícia' : 'Publicar Notícia'}</h2>
+                      <p className="text-sm text-slate-500">A notícia será exibida no portal público e na página inicial.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-800">Publicar Notícia</h2>
-                    <p className="text-sm text-slate-500">A notícia será exibida no portal público e na página inicial.</p>
-                  </div>
+                  {editingNoticiaId && (
+                    <button
+                      type="button"
+                      onClick={resetNoticiaForm}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors shrink-0"
+                    >
+                      <XCircle size={14} /> Cancelar edição
+                    </button>
+                  )}
                 </div>
 
-                <form onSubmit={handlePublishNoticia} className="space-y-4">
+                <form onSubmit={openNoticiaPreview} className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título da notícia</label>
                     <input type="text" required value={noticiaTitle} onChange={e => setNoticiaTitle(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none transition-all" placeholder="Ex: Novo posto de vacinação aberto no centro" />
@@ -476,17 +605,8 @@ export default function Saude() {
                   </div>
 
                   <button type="submit" disabled={noticiaLoading} className="w-full bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                    {noticiaLoading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Publicando...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={18} />
-                        Publicar notícia
-                      </>
-                    )}
+                    {editingNoticiaId ? <Pencil size={18} /> : <Plus size={18} />}
+                    {editingNoticiaId ? 'Revisar alterações' : 'Revisar e publicar'}
                   </button>
                 </form>
               </div>
@@ -521,7 +641,7 @@ export default function Saude() {
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                     {minhasNoticias.map(noticia => (
-                      <div key={noticia.id} className="bg-white border border-slate-100 rounded-xl p-4 hover:shadow-sm transition-all group">
+                      <div key={noticia.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingNoticiaId === noticia.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             {noticia.imagem_url && (
@@ -541,7 +661,7 @@ export default function Saude() {
                             </div>
                           </div>
 
-                          <div className="flex-shrink-0">
+                          <div className="flex-shrink-0 flex items-center gap-1.5">
                             {deleteNoticiaConfirm === noticia.id ? (
                               <div className="flex items-center gap-2 animate-fade-in">
                                 <button
@@ -560,13 +680,22 @@ export default function Saude() {
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => setDeleteNoticiaConfirm(noticia.id)}
-                                className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
-                                title="Excluir notícia"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleEditNoticia(noticia)}
+                                  className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
+                                  title="Editar notícia"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteNoticiaConfirm(noticia.id)}
+                                  className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                  title="Excluir notícia"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>

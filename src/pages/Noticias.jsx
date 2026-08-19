@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { Newspaper, Clock, Eye, ArrowLeft, Search, ChevronLeft, ChevronRight, Image } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import AccessibilityToolbar from '../components/AccessibilityToolbar';
+import { onActivateKey } from '../lib/a11y';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -56,12 +58,14 @@ function NoticiaImageGallery({ noticia }) {
       {/* Navigation Arrows */}
       <button
         onClick={() => setCurrentImg(prev => (prev - 1 + noticia.imagens.length) % noticia.imagens.length)}
+        aria-label="Imagem anterior"
         className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white text-slate-800 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
       >
         <ChevronLeft size={20} />
       </button>
       <button
         onClick={() => setCurrentImg(prev => (prev + 1) % noticia.imagens.length)}
+        aria-label="Próxima imagem"
         className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white text-slate-800 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
       >
         <ChevronRight size={20} />
@@ -73,6 +77,8 @@ function NoticiaImageGallery({ noticia }) {
           <button
             key={i}
             onClick={() => setCurrentImg(i)}
+            aria-label={`Ver imagem ${i + 1} de ${noticia.imagens.length}`}
+            aria-current={i === currentImg}
             className={`h-2 rounded-full transition-all duration-300 ${i === currentImg ? 'bg-white w-5' : 'bg-white/50 w-2 hover:bg-white/85'}`}
           />
         ))}
@@ -123,8 +129,9 @@ export default function Noticias() {
   if (selectedNoticia) {
     return (
       <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+        <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
+        <main id="conteudo-principal" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
           <button
             onClick={() => setSelectedNoticia(null)}
             className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800 mb-6 transition-colors animate-slide-down"
@@ -160,19 +167,21 @@ export default function Noticias() {
               )}
             </div>
           </article>
-        </div>
+        </main>
         <Footer />
+        <AccessibilityToolbar />
       </div>
     );
   }
 
   return (
     <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+      <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
       <Navbar />
 
       <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10" />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
+      <main id="conteudo-principal" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
         {/* Header */}
         <header className="mb-8 animate-slide-up">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -192,8 +201,10 @@ export default function Noticias() {
 
             {/* Search */}
             <div className="relative w-full sm:w-72">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <label htmlFor="busca-noticias" className="sr-only">Buscar notícia</label>
               <input
+                id="busca-noticias"
                 type="text"
                 placeholder="Buscar notícia..."
                 value={busca}
@@ -227,6 +238,10 @@ export default function Noticias() {
             {destaque && (
               <div
                 onClick={() => setSelectedNoticia(destaque)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ler notícia em destaque: ${destaque.titulo}`}
+                onKeyDown={onActivateKey(() => setSelectedNoticia(destaque))}
                 className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 cursor-pointer group hover:shadow-xl transition-all animate-slide-up"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2">
@@ -274,6 +289,10 @@ export default function Noticias() {
                     <div
                       key={noticia.id}
                       onClick={() => setSelectedNoticia(noticia)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ler notícia: ${noticia.titulo}`}
+                      onKeyDown={onActivateKey(() => setSelectedNoticia(noticia))}
                       className={`glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-100 cursor-pointer group hover:shadow-lg hover:border-slate-200 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
                     >
                       {noticia.imagem_url ? (
@@ -313,9 +332,10 @@ export default function Noticias() {
             )}
           </div>
         )}
-      </div>
+      </main>
 
       <Footer />
+      <AccessibilityToolbar />
     </div>
   );
 }

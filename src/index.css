@@ -26,6 +26,79 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== ACESSIBILIDADE (e-MAG / WCAG) ===== */
+
+/* Foco visível e consistente em qualquer elemento navegável por teclado,
+   independentemente de a classe do componente já ter um focus:ring próprio. */
+:focus-visible {
+  outline: 3px solid var(--color-primary-light);
+  outline-offset: 2px;
+}
+
+/* Link "Pular para o conteúdo principal": some visualmente até receber foco
+   (primeiro Tab da página), permitindo que quem navega por teclado ou leitor
+   de tela não precise passar por todo o menu a cada página. */
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 2000;
+  background: #1e293b;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: top 0.15s ease-in-out;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+
+/* Tamanho de texto ajustável: como o Tailwind usa rem, alterar o font-size
+   da raiz redimensiona proporcionalmente o site inteiro (texto, espaçamentos
+   e ícones em rem), mantendo o layout coerente. */
+html.a11y-fonte-grande {
+  font-size: 112.5%; /* ~18px */
+}
+html.a11y-fonte-extra-grande {
+  font-size: 125%; /* ~20px */
+}
+
+/* Alto contraste: fundo branco sólido, texto preto, links sublinhados e
+   remoção de efeitos (gradiente/blur) que reduzem a legibilidade para quem
+   tem baixa visão. Os seletores de atributo abaixo pegam as classes utilitárias
+   do Tailwind (ex.: text-slate-400/500/600) direto no HTML renderizado. */
+html.a11y-alto-contraste body {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+html.a11y-alto-contraste .glass-panel {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.a11y-alto-contraste .text-gradient,
+html.a11y-alto-contraste .text-gradient-green {
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+  color: #000000 !important;
+}
+html.a11y-alto-contraste [class*="text-slate-3"],
+html.a11y-alto-contraste [class*="text-slate-4"],
+html.a11y-alto-contraste [class*="text-slate-5"],
+html.a11y-alto-contraste [class*="text-slate-6"] {
+  color: #0f172a !important;
+}
+html.a11y-alto-contraste a {
+  text-decoration: underline !important;
+}
+html.a11y-alto-contraste *:focus-visible {
+  outline: 3px solid #000000 !important;
+  outline-offset: 2px !important;
+}
+
 /* ===== GLASS MORPHISM ===== */
 
 .glass-panel {

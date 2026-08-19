@@ -5,6 +5,7 @@ import { ShieldAlert, Info, Calendar, MapPin, Megaphone, Filter, ChevronLeft, Ch
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { EventCardSkeleton } from '../components/LoadingSkeleton';
+import AccessibilityToolbar from '../components/AccessibilityToolbar';
 
 export default function Events() {
   const [eventos, setEventos] = useState([]);
@@ -41,11 +42,12 @@ export default function Events() {
 
   return (
     <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+      <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
       <Navbar />
-      
+
       <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10"></div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-4">
+      <main id="conteudo-principal" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-4">
         {/* Header */}
         <header className="mb-8 animate-slide-up">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -80,6 +82,7 @@ export default function Events() {
             <button
               key={f}
               onClick={() => setFiltro(f)}
+              aria-pressed={filtro === f}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 filtro === f
                   ? f === 'Urgente'
@@ -122,9 +125,10 @@ export default function Events() {
             ))
           )}
         </div>
-      </div>
+      </main>
 
       <Footer />
+      <AccessibilityToolbar />
     </div>
   );
 }
@@ -153,12 +157,14 @@ function EventCard({ evento, index, isNew }) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); setCurrentImg(prev => (prev - 1 + evento.imagens.length) % evento.imagens.length); }}
+                aria-label="Imagem anterior"
                 className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
               >
                 <ChevronLeft size={14} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setCurrentImg(prev => (prev + 1) % evento.imagens.length); }}
+                aria-label="Próxima imagem"
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
               >
                 <ChevronRight size={14} />
@@ -169,6 +175,8 @@ function EventCard({ evento, index, isNew }) {
                   <button
                     key={i}
                     onClick={(e) => { e.stopPropagation(); setCurrentImg(i); }}
+                    aria-label={`Ver imagem ${i + 1} de ${evento.imagens.length}`}
+                    aria-current={i === currentImg}
                     className={`h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-white w-4' : 'bg-white/50 w-1.5'}`}
                   />
                 ))}
