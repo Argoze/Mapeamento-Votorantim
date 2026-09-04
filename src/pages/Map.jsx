@@ -45,17 +45,46 @@ const iconUBS = createCustomIcon('#2563eb', '🏥');
 const iconESF = createCustomIcon('#059669', '💚');
 const iconHospital = createCustomIcon('#dc2626', '🏨');
 const iconUPA = createCustomIcon('#f59e0b', '🚑');
+const iconEducacao = createCustomIcon('#7c3aed', '🎓');
+const iconCultura = createCustomIcon('#db2777', '🎭');
+const iconGoverno = createCustomIcon('#475569', '🏛️');
+const iconLazer = createCustomIcon('#16a34a', '🌳');
+const iconBiblioteca = createCustomIcon('#0891b2', '📚');
 
-function getUnitIcon(nome) {
-  const n = nome.toLowerCase();
+// Unidades de saúde (categoria "Saúde") continuam sendo sub-classificadas por
+// nome (UBS/ESF/Hospital/UPA), como sempre foi. As demais categorias de locais
+// públicos (Educação, Cultura, Governo, Lazer, Biblioteca) usam a própria
+// categoria como "tipo", sem essa sub-classificação.
+function getUnitIcon(unidade) {
+  const categoria = unidade.categoria || 'Saúde';
+  if (categoria !== 'Saúde') {
+    return {
+      'Educação': iconEducacao,
+      'Cultura': iconCultura,
+      'Governo': iconGoverno,
+      'Lazer': iconLazer,
+      'Biblioteca': iconBiblioteca,
+    }[categoria] || iconGoverno;
+  }
+  const n = unidade.nome.toLowerCase();
   if (n.includes('hospital')) return iconHospital;
   if (n.includes('upa')) return iconUPA;
   if (n.includes('esf')) return iconESF;
   return iconUBS;
 }
 
-function getUnitType(nome) {
-  const n = nome.toLowerCase();
+function getUnitType(unidade) {
+  const categoria = unidade.categoria || 'Saúde';
+  if (categoria !== 'Saúde') {
+    return {
+      'Educação': { label: 'Educação', color: 'purple' },
+      'Cultura': { label: 'Cultura', color: 'pink' },
+      'Governo': { label: 'Governo', color: 'slate' },
+      'Lazer': { label: 'Lazer', color: 'emerald' },
+      'Biblioteca': { label: 'Biblioteca', color: 'cyan' },
+    }[categoria] || { label: categoria, color: 'slate' };
+  }
+  const n = unidade.nome.toLowerCase();
   if (n.includes('hospital')) return { label: 'Hospital', color: 'red' };
   if (n.includes('upa')) return { label: 'UPA', color: 'orange' };
   if (n.includes('esf')) return { label: 'ESF', color: 'green' };
@@ -63,7 +92,18 @@ function getUnitType(nome) {
 }
 
 function badgeClass(color) {
-  return color === 'red' ? 'bg-red-500' : color === 'orange' ? 'bg-amber-500' : color === 'green' ? 'bg-emerald-500' : 'bg-blue-500';
+  const map = {
+    red: 'bg-red-500',
+    orange: 'bg-amber-500',
+    green: 'bg-emerald-500',
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-600',
+    pink: 'bg-pink-600',
+    slate: 'bg-slate-600',
+    emerald: 'bg-emerald-600',
+    cyan: 'bg-cyan-600',
+  };
+  return map[color] || 'bg-blue-500';
 }
 
 // ---------- Favoritos (persistidos no navegador, sem exigir login do cidadão) ----------
@@ -90,13 +130,22 @@ function saveFavoritos(ids) {
 
 // ---------- Filtros por tipo ----------
 
-const FILTROS = ['Todos', 'UBS', 'ESF', 'Hospital', 'UPA', 'Favoritos'];
+const FILTROS = [
+  'Todos', 'UBS', 'ESF', 'Hospital', 'UPA',
+  'Educação', 'Cultura', 'Governo', 'Lazer', 'Biblioteca',
+  'Favoritos',
+];
 
 const LEGENDA_TIPOS = [
-  { sigla: 'UBS', nome: 'Unidade Básica de Saúde', desc: 'Atendimento de rotina: consultas, vacinas e acompanhamento geral, sem hora marcada de urgência.' },
-  { sigla: 'ESF', nome: 'Estratégia Saúde da Família', desc: 'Equipe fixa que acompanha de perto as famílias de um bairro/território específico.' },
-  { sigla: 'UPA', nome: 'Unidade de Pronto Atendimento', desc: 'Urgências que não são risco de vida (funciona também fora do horário comercial).' },
-  { sigla: 'Hospital', nome: 'Hospital', desc: 'Internações e emergências mais graves.' },
+  { sigla: 'UBS', cor: 'blue', nome: 'Unidade Básica de Saúde', desc: 'Atendimento de rotina: consultas, vacinas e acompanhamento geral, sem hora marcada de urgência.' },
+  { sigla: 'ESF', cor: 'green', nome: 'Estratégia Saúde da Família', desc: 'Equipe fixa que acompanha de perto as famílias de um bairro/território específico.' },
+  { sigla: 'UPA', cor: 'orange', nome: 'Unidade de Pronto Atendimento', desc: 'Urgências que não são risco de vida (funciona também fora do horário comercial).' },
+  { sigla: 'Hospital', cor: 'red', nome: 'Hospital', desc: 'Internações e emergências mais graves.' },
+  { sigla: 'Educação', cor: 'purple', nome: 'Educação', desc: 'Escolas e centros de educação infantil da rede municipal (EMEF, EMEIEF, CMEI).' },
+  { sigla: 'Cultura', cor: 'pink', nome: 'Cultura', desc: 'Centros culturais, museus, auditórios e espaços de arte e turismo.' },
+  { sigla: 'Governo', cor: 'slate', nome: 'Governo', desc: 'Prefeitura, câmara municipal e sedes de secretarias.' },
+  { sigla: 'Lazer', cor: 'emerald', nome: 'Lazer', desc: 'Parques e áreas de lazer e esporte ao ar livre.' },
+  { sigla: 'Biblioteca', cor: 'cyan', nome: 'Biblioteca', desc: 'Bibliotecas públicas municipais.' },
 ];
 
 function buildWhatsAppShareUrl(unidade) {
@@ -170,7 +219,7 @@ export default function Map() {
   const matchesFiltro = (unidade) => {
     if (tipoFiltro === 'Favoritos') return favoritos.includes(unidade.id);
     if (tipoFiltro === 'Todos') return true;
-    return getUnitType(unidade.nome).label === tipoFiltro;
+    return getUnitType(unidade).label === tipoFiltro;
   };
 
   const unidadesFiltradas = unidades.filter(matchesFiltro);
@@ -305,7 +354,7 @@ export default function Map() {
         setTipoFiltro('Todos'); // garante que o resultado (Hospital/UPA) fique visível mesmo se outro filtro estava ativo
 
         const urgentes = unidades
-          .filter(u => ['Hospital', 'UPA'].includes(getUnitType(u.nome).label))
+          .filter(u => ['Hospital', 'UPA'].includes(getUnitType(u).label))
           .map(u => ({ ...u, distancia: calcularDistancia(userLat, userLon, u.lat, u.lng) }))
           .sort((a, b) => a.distancia - b.distancia);
 
@@ -326,17 +375,18 @@ export default function Map() {
   };
 
   // Contadores de unidades por tipo
+  const unidadesSaude = unidades.filter(u => (u.categoria || 'Saúde') === 'Saúde');
   const stats = {
-    ubs: unidades.filter(u => !u.nome.toLowerCase().includes('esf') && !u.nome.toLowerCase().includes('hospital') && !u.nome.toLowerCase().includes('upa')).length,
-    esf: unidades.filter(u => u.nome.toLowerCase().includes('esf')).length,
-    hospital: unidades.filter(u => u.nome.toLowerCase().includes('hospital')).length,
-    upa: unidades.filter(u => u.nome.toLowerCase().includes('upa')).length,
+    ubs: unidadesSaude.filter(u => !u.nome.toLowerCase().includes('esf') && !u.nome.toLowerCase().includes('hospital') && !u.nome.toLowerCase().includes('upa')).length,
+    esf: unidadesSaude.filter(u => u.nome.toLowerCase().includes('esf')).length,
+    hospital: unidadesSaude.filter(u => u.nome.toLowerCase().includes('hospital')).length,
+    upa: unidadesSaude.filter(u => u.nome.toLowerCase().includes('upa')).length,
   };
 
   const contadorFiltro = (f) => {
     if (f === 'Todos') return unidades.length;
     if (f === 'Favoritos') return favoritos.length;
-    return unidades.filter(u => getUnitType(u.nome).label === f).length;
+    return unidades.filter(u => getUnitType(u).label === f).length;
   };
 
   return (
@@ -467,7 +517,7 @@ export default function Map() {
             <div id="legenda-siglas" className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white border border-slate-200 rounded-xl p-4 animate-slide-down">
               {LEGENDA_TIPOS.map(item => (
                 <div key={item.sigla} className="flex items-start gap-2">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white mt-0.5 flex-shrink-0 ${badgeClass(getUnitType(item.sigla).color)}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white mt-0.5 flex-shrink-0 ${badgeClass(item.cor)}`}>
                     {item.sigla}
                   </span>
                   <div>
@@ -506,7 +556,7 @@ export default function Map() {
                   <Marker
                     key={unidade.id}
                     position={[unidade.lat, unidade.lng]}
-                    icon={getUnitIcon(unidade.nome)}
+                    icon={getUnitIcon(unidade)}
                     ref={(el) => {
                       if (el) {
                         markerRefs.current[unidade.id] = el;
@@ -519,8 +569,8 @@ export default function Map() {
                           <img src={unidade.imagens[0]} alt={unidade.nome} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }} />
                         )}
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${badgeClass(getUnitType(unidade.nome).color)}`}>
-                            {getUnitType(unidade.nome).label}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${badgeClass(getUnitType(unidade).color)}`}>
+                            {getUnitType(unidade).label}
                           </span>
                           <button
                             onClick={() => toggleFavorito(unidade.id)}
@@ -601,7 +651,7 @@ export default function Map() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {unidadesProximasFiltradas.map((u, index) => {
-                    const unitType = getUnitType(u.nome);
+                    const unitType = getUnitType(u);
                     const isFavorito = favoritos.includes(u.id);
                     return (
                       <div

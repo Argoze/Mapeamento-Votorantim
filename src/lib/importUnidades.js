@@ -61,11 +61,24 @@ function normalizarCabecalho(h) {
 const ALIASES_COLUNA = {
   nome: ['nome', 'local', 'unidade', 'nome da unidade', 'nome unidade'],
   endereco: ['endereco', 'address', 'logradouro', 'endereco completo'],
+  categoria: ['categoria', 'categoria do local', 'tipo de local', 'area'],
   telefone: ['telefone', 'fone', 'tel', 'phone', 'contato'],
   lat: ['lat', 'latitude'],
   lng: ['lng', 'lon', 'long', 'longitude'],
   coordenada: ['coordenada', 'coordenadas', 'coords', 'coordinate', 'coordinates'],
 };
+
+// Categorias de local público reconhecidas pelo sistema (ver também setup_database.sql
+// e Map.jsx). "Saúde" é o padrão para manter compatibilidade com planilhas antigas,
+// que só cadastravam unidades de saúde e não tinham essa coluna.
+export const CATEGORIAS_VALIDAS = ['Saúde', 'Educação', 'Cultura', 'Governo', 'Lazer', 'Biblioteca'];
+
+function normalizarCategoria(bruta) {
+  const c = (bruta || '').toString().trim();
+  if (!c) return 'Saúde';
+  const encontrada = CATEGORIAS_VALIDAS.find(v => v.toLowerCase() === c.toLowerCase());
+  return encontrada || c; // mantém o valor original se não reconhecido, para o admin revisar
+}
 
 function detectarColunas(linhaCabecalho) {
   const normalizadas = linhaCabecalho.map(normalizarCabecalho);
@@ -106,6 +119,7 @@ export function construirLinhasImportacao(matriz) {
       const nomeOriginal = celula(colunas.nome);
       const endereco = celula(colunas.endereco);
       const telefoneBruto = celula(colunas.telefone);
+      const categoria = normalizarCategoria(celula(colunas.categoria));
 
       let lat = null;
       let lng = null;
@@ -138,6 +152,9 @@ export function construirLinhasImportacao(matriz) {
         if (lat < LAT_MIN || lat > LAT_MAX) erros.push('Latitude fora da faixa esperada para a região');
         if (lng < LNG_MIN || lng > LNG_MAX) erros.push('Longitude fora da faixa esperada para a região');
       }
+      if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+        erros.push(`Categoria "${categoria}" não reconhecida (use: ${CATEGORIAS_VALIDAS.join(', ')})`);
+      }
 
       return {
         chave: `linha-${i}`,
@@ -146,10 +163,13 @@ export function construirLinhasImportacao(matriz) {
         nome,
         renomeado: nome !== nomeOriginal,
         endereco,
+        categoria,
         telefone: telefoneBruto || null,
         lat,
         lng,
-        tipoDetectado: detectarTipo(nome),
+        // Só faz sentido sub-classificar em UBS/ESF/Hospital/UPA dentro da categoria Saúde;
+        // para as demais categorias, o "tipo" exibido é a própria categoria.
+        tipoDetectado: categoria === 'Saúde' ? detectarTipo(nome) : categoria,
         valido: erros.length === 0,
         erros,
       };
@@ -158,8 +178,9 @@ export function construirLinhasImportacao(matriz) {
 
 export function gerarCsvModelo() {
   const linhas = [
-    'Nome,Endereco,Latitude,Longitude,Telefone',
-    '"UBS Exemplo","Rua das Flores, 100 - Centro",-23.5451,-47.4412,"(15) 3347-0000"',
+    'Nome,Endereco,Categoria,Latitude,Longitude,Telefone',
+    '"UBS Exemplo","Rua das Flores, 100 - Centro",Saúde,-23.5451,-47.4412,"(15) 3347-0000"',
+    '"EMEF Exemplo","Rua das Palmeiras, 200 - Centro",Educação,-23.5461,-47.4422,',
   ];
   return linhas.join('\r\n');
 }

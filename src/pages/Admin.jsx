@@ -94,6 +94,7 @@ export default function Admin() {
 
   // States para locais/unidades
   const [unidadeNome, setUnidadeNome] = useState('');
+  const [unidadeCategoria, setUnidadeCategoria] = useState('Saúde');
   const [unidadeTipo, setUnidadeTipo] = useState('UBS');
   const [unidadeEndereco, setUnidadeEndereco] = useState('');
   const [unidadeLat, setUnidadeLat] = useState('');
@@ -455,14 +456,22 @@ export default function Admin() {
   const resetUnidadeForm = () => {
     setUnidadeNome(''); setUnidadeEndereco(''); setUnidadeLat(''); setUnidadeLng(''); setUnidadeImagens([]);
     setUnidadeTelefone('');
+    setUnidadeCategoria('Saúde');
     setUnidadeTipo('UBS');
     setEditingUnidadeId(null);
   };
 
   const handleEditUnidade = (unidade) => {
-    const { tipo: tipoDerivado, resto } = deriveTipoFromNome(unidade.nome);
-    setUnidadeTipo(tipoDerivado);
-    setUnidadeNome(resto);
+    const categoria = unidade.categoria || 'Saúde';
+    setUnidadeCategoria(categoria);
+    if (categoria === 'Saúde') {
+      const { tipo: tipoDerivado, resto } = deriveTipoFromNome(unidade.nome);
+      setUnidadeTipo(tipoDerivado);
+      setUnidadeNome(resto);
+    } else {
+      setUnidadeTipo('UBS');
+      setUnidadeNome(unidade.nome);
+    }
     setUnidadeEndereco(unidade.endereco);
     setUnidadeLat(String(unidade.lat));
     setUnidadeLng(String(unidade.lng));
@@ -480,25 +489,31 @@ export default function Admin() {
     }
     setUnidadePublishLoading(true);
 
+    // A sub-classificação por prefixo no nome (UBS/ESF/Hospital/UPA) só se aplica
+    // à categoria Saúde. Para as demais categorias (Educação, Cultura, Governo,
+    // Lazer, Biblioteca) o nome é salvo como digitado.
     let finalNome = unidadeNome.trim();
-    if (unidadeTipo === 'ESF' && !finalNome.toLowerCase().startsWith('esf')) {
-      finalNome = `ESF ${finalNome}`;
-    } else if (unidadeTipo === 'UPA' && !finalNome.toLowerCase().startsWith('upa')) {
-      finalNome = `UPA ${finalNome}`;
-    } else if (unidadeTipo === 'Hospital' && !finalNome.toLowerCase().startsWith('hospital')) {
-      finalNome = `Hospital ${finalNome}`;
-    } else if (unidadeTipo === 'UBS') {
-      if (!finalNome.toLowerCase().startsWith('ubs') &&
-          !finalNome.toLowerCase().startsWith('esf') &&
-          !finalNome.toLowerCase().startsWith('upa') &&
-          !finalNome.toLowerCase().startsWith('hospital')) {
-        finalNome = `UBS ${finalNome}`;
+    if (unidadeCategoria === 'Saúde') {
+      if (unidadeTipo === 'ESF' && !finalNome.toLowerCase().startsWith('esf')) {
+        finalNome = `ESF ${finalNome}`;
+      } else if (unidadeTipo === 'UPA' && !finalNome.toLowerCase().startsWith('upa')) {
+        finalNome = `UPA ${finalNome}`;
+      } else if (unidadeTipo === 'Hospital' && !finalNome.toLowerCase().startsWith('hospital')) {
+        finalNome = `Hospital ${finalNome}`;
+      } else if (unidadeTipo === 'UBS') {
+        if (!finalNome.toLowerCase().startsWith('ubs') &&
+            !finalNome.toLowerCase().startsWith('esf') &&
+            !finalNome.toLowerCase().startsWith('upa') &&
+            !finalNome.toLowerCase().startsWith('hospital')) {
+          finalNome = `UBS ${finalNome}`;
+        }
       }
     }
 
     try {
       const payload = {
         nome: finalNome,
+        categoria: unidadeCategoria,
         endereco: unidadeEndereco,
         lat: parseFloat(unidadeLat),
         lng: parseFloat(unidadeLng),
@@ -632,6 +647,7 @@ export default function Admin() {
     try {
       const payload = selecionadas.map(l => ({
         nome: l.nome,
+        categoria: l.categoria,
         endereco: l.endereco,
         lat: l.lat,
         lng: l.lng,
@@ -1464,7 +1480,7 @@ export default function Admin() {
                   <form onSubmit={handlePublishUnidade} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="sm:col-span-2">
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nome da unidade</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nome do local</label>
                         <input
                           type="text"
                           required
@@ -1475,20 +1491,40 @@ export default function Admin() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tipo de unidade</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Categoria</label>
                         <select
-                          value={unidadeTipo}
-                          onChange={e => setUnidadeTipo(e.target.value)}
+                          value={unidadeCategoria}
+                          onChange={e => setUnidadeCategoria(e.target.value)}
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                         >
-                          <option value="UBS">🏥 UBS</option>
-                          <option value="ESF">💚 ESF</option>
-                          <option value="Hospital">🏨 Hospital</option>
-                          <option value="UPA">🚑 UPA</option>
+                          <option value="Saúde">🏥 Saúde</option>
+                          <option value="Educação">🎓 Educação</option>
+                          <option value="Cultura">🎭 Cultura</option>
+                          <option value="Governo">🏛️ Governo</option>
+                          <option value="Lazer">🌳 Lazer</option>
+                          <option value="Biblioteca">📚 Biblioteca</option>
                         </select>
                       </div>
                     </div>
-                    {unidadeNome && (
+                    {unidadeCategoria === 'Saúde' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="sm:col-span-2" />
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tipo de unidade</label>
+                          <select
+                            value={unidadeTipo}
+                            onChange={e => setUnidadeTipo(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          >
+                            <option value="UBS">🏥 UBS</option>
+                            <option value="ESF">💚 ESF</option>
+                            <option value="Hospital">🏨 Hospital</option>
+                            <option value="UPA">🚑 UPA</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                    {unidadeNome && unidadeCategoria === 'Saúde' && (
                       <p className="text-xs text-indigo-600 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100/50 animate-slide-down">
                         💡 <strong>Salvo no mapa como:</strong> {
                           unidadeTipo === 'ESF' && !unidadeNome.toLowerCase().startsWith('esf') ? `ESF ${unidadeNome}` :
@@ -1790,7 +1826,12 @@ export default function Admin() {
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-slate-800 text-sm truncate">{unidade.nome}</h4>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="font-bold text-slate-800 text-sm truncate">{unidade.nome}</h4>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 flex-shrink-0">
+                                    {unidade.categoria || 'Saúde'}
+                                  </span>
+                                </div>
                                 <p className="text-xs text-slate-500 line-clamp-1">{unidade.endereco}</p>
                                 <span className="text-[10px] text-slate-400 mt-1 block font-mono">
                                   Lat: {unidade.lat} | Lng: {unidade.lng}

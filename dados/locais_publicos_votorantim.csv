@@ -1,0 +1,76 @@
+﻿Nome,Endereco,Categoria,Latitude,Longitude,Telefone,Observacao
+Prefeitura de Votorantim (Paço Municipal),"Avenida 31 de Março, 327, Centro",Governo,-23.5408591,-47.4468843,,"Sede das secretarias de Administração, Finanças, Governo, Mobilidade Urbana, Negócios Jurídicos, Obras e Urbanismo e Planejamento e Desenvolvimento"
+Câmara Municipal de Votorantim,"Boulevard Antônio Festa, 88, Centro",Governo,-23.5403558,-47.4466548,(15) 3353-7300,
+VOTOPREV - Fundação da Seguridade Social dos Servidores,"Avenida Philomena Lopes Vasques, 177, Jardim Archila",Governo,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+Secretaria de Cidadania e Geração de Renda,"Avenida Moacir Oséias Guitte, Jardim Paraíso",Governo,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+Secretaria de Cultura e Turismo,"Avenida São João, 649, Jardim Icatu",Governo,-23.5404498,-47.4511201,,
+Secretaria de Educação,"Avenida Santo Antônio, 562, Barra Funda",Governo,-23.548615,-47.4340126,,
+Secretaria de Esportes,"Rua João Alarcon, 50, Jardim Icatu",Governo,-23.5414319,-47.4453976,,
+Secretaria de Meio Ambiente,"Rua Angelo Delapasi, 117, Parque Bela Vista",Governo,-23.5459698,-47.4627163,,
+Secretaria de Saúde (sede administrativa),"Rua Pedro Fontes, 550, Rio Acima",Governo,-23.5379984,-47.4359864,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+Secretaria de Serviços Públicos,"Avenida Moacir Oséias Guitte, Centro",Governo,-23.5379719,-47.4471433,,
+Centro Cultural Mathias Gianolla,"Boulevard Antônio Festa, 59, Centro",Cultura,-23.5379719,-47.4471433,(15) 3353-8564,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+Biblioteca Municipal de Votorantim (posto no Aquário Cultura),"Avenida Moacir Oséias Guitte, 41, Centro",Biblioteca,-23.5400318,-47.4471409,(15) 3353-8669,
+Aquário Cultura Claudir Calixto Mainardi,"Avenida Moacir Oséias Guitte, 41, Centro",Cultura,-23.5379719,-47.4471433,(15) 3353-8669,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+Museu Histórico de Votorantim,"Rua Joaquim Fogaça, 82, Vila Dominguinho",Cultura,-23.5429002,-47.4384852,(15) 3243-1191,
+Auditório Municipal Francisco Beranger,"Avenida Vereador Newton Vieira Soares, 291, Centro",Cultura,-23.5379719,-47.4471433,(15) 3243-0471,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+Parque do Matão Jonas Domingues,"Rua Angelo Delapasi, 117, Parque Bela Vista",Lazer,-23.5459698,-47.4627163,(15) 3343-4076,
+Parque Ecológico das Aves Jhosely Lopes dos Santos,"Parque Ecológico das Aves, Votorantim",Lazer,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+EMEF Professor Abimael Carlos de Campos,"Avenida Luiz do Patrocínio Fernandes, 631, Dominguinho",Educação,-23.540442,-47.4382732,,
+EMEF Professor Antônio Vicente Bernardi,"Rua José Alarcon, 50, Jardim Archila",Educação,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+EMEF Professora Dides Crispim de Almeida Antônio,"Rua Mário Nieri, 144, Vila Garcia",Educação,-23.5302864,-47.4300754,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEF Izabel Ferreira Coelho,"Rua José Gori, 120, Rio Acima",Educação,-23.5359545,-47.4354147,,
+EMEF João Ferreira da Silva,"Rua Angelo Bruno, 123, Itapeva",Educação,-23.5636279,-47.4491542,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEF Professor Lauro Alves de Lima,"Rua Caetano Corrêa da Silva, 33, Jardim Serrano",Educação,-23.5598371,-47.4556203,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEF Maria Luiza Jacowicz,"Rua Paschoal Jerônimo Fornazari, 465, Fornazari",Educação,-23.5486668,-47.4224656,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEF Maria do Rosário Arcuri de Oliveira Campos,"Rua Pedro Nunes, 407, Jardim Serrano II",Educação,-23.5643353,-47.4567032,,
+EMEF Professora Mercedes Santucci,"Rua Pedro Ferreira de Souza, Novo Mundo",Educação,-23.5399155,-47.5018788,,
+EMEF Professor Oscar Bento Mariano,"Rua Anésio Pereira do Nascimento, 123, Jardim Tatiana",Educação,-23.5427934,-47.4910215,,
+EMEF Sueli da Silva Paula,"Rua Laila Gallep Sacker, 25, Barra Funda",Educação,-23.5463794,-47.4377553,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEF Professor Walter Rocha Camargo,"Rua Odete Gori Bicudo, 800, Vila Nova",Educação,-23.5378835,-47.4152738,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Gerson Soares de Arruda,"Rua Mauro Almeida Barros, 57, Parque São João",Educação,-23.5713448,-47.4544953,,
+EMEIEF Antônio Marciano,"Rua Sete de Setembro, 803, Parque Bela Vista",Educação,-23.5437371,-47.4599227,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Aurora Fontes,"Rua Orlando Latance, 140, Vila Nova",Educação,-23.5376622,-47.41823,,
+EMEIEF Professora Betty de Souza Oliveira,"Avenida Santos Dumont, 1450, Vossoroca",Educação,-23.5479123,-47.4509888,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Professor Cândido dos Santos,"Rua Antônio Pereira de Almeida, 27, Green Valley",Educação,-23.5584043,-47.4906296,,
+EMEIEF Professora Célia Pieroni,"Rua Antônio Antunes de Assis, 35, Itapeva",Educação,-23.5636279,-47.4491542,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Professora Edith Maganini,"Rua João Carlos de Campos, 359, Vossoroca",Educação,-23.5479123,-47.4509888,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Eugênia Maria da Silveira,"Rua Anísio Pereira do Nascimento, Jardim Tatiana",Educação,-23.5423649,-47.4916524,,
+EMEIEF Gilberto dos Santos,"Rua Luís Frias, Parque Jataí II",Educação,-23.5713229,-47.4631258,,
+EMEIEF Helena Pereira de Moraes,"Avenida Vereador Newton Vieira Soares, 291, Centro",Educação,-23.5379719,-47.4471433,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Izabel Fernandes Pedroso,"Rua Lourenço Mouro, 60, Jardim São Lucas",Educação,-23.5823947,-47.4701919,,
+EMEIEF Lucinda Rodrigues Pereira Ignácio,"Rua Hortência Maciel de Camargo, 154, Parque Morumbi",Educação,-23.5390298,-47.4610506,,
+EMEIEF Maria Helena de Moraes Scripilliti,"Rua Eugênio Ildefonso, 111, Vila Votocel",Educação,-23.556119,-47.4426714,,
+EMEIEF Professora Parizete Jordão Bressane,"Rua Jackes Gonçalves, 154, Jardim Serrano II",Educação,-23.5598371,-47.4556203,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+EMEIEF Professora Patrícia Maria dos Santos,"Rua Benedito Galero, 99, São Matheus",Educação,-23.5396615,-47.4081844,,
+CMEI Carmela de Paula Cipullo,"Avenida Octávio Augusto Rangel, 360, Curtume",Educação,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+CMEI Célia Chiozotto Marinoni,"Rua Joaquim Ferreira, 137, Rio Acima",Educação,-23.5382888,-47.4352219,,
+CMEI Maria Aparecida Ferrato Camargo,"Rua Manoel Vasques Pineda, 344, Fornazari",Educação,-23.5396364,-47.4238927,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Raphaela Résio Cau,"Rua Carlos Caldini, Vila Garcia",Educação,-23.5302864,-47.4300754,,
+CMEI Romana Frederico Bauch,"Rua José Paz Ribeiro, 81, Novo Mundo",Educação,-23.5395317,-47.5027832,,
+CMEI Rosa Pereira,"Rua Flávio Sampaio, 41, Promorar",Educação,-23.5365502,-47.4100611,,
+CMEI Sueli Gazolli Campos,"Rua Otávio Rodrigues, Jardim Serrano",Educação,-23.562694,-47.4547367,,
+CMEI Alda Luchini Vial,"Rua Isaac Mendes, 89, Ângelo Vial",Educação,-23.525561,-47.4444429,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Antônia do Rosário Santos,"Rua Renato Araújo, 59, Jardim Araújo",Educação,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+CMEI Carmela Guariglia Ramos,"Rua Cantídio de Souza, 44, Vila Galli",Educação,-23.5635138,-47.4522156,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Professora Cecília Fernanda Arcuri Pacheco,"Rua Antônio Aparecido Ferraz, Jardim Tatiana",Educação,-23.5444712,-47.4969663,,
+CMEI Clélia Carrara,"Rua João André Filho, Real Parque",Educação,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+CMEI Professora Ester Agar Fonseca Félix,"Rua Venizia dos Santos Albertoni, Jardim Ana Cláudia",Educação,-23.5330018,-47.4312153,,
+CMEI Felippe Kalil,"Rua Gumercindo Vieira Soares, Jardim São Luiz",Educação,-23.5310496,-47.4374351,,
+CMEI Fernanda Rosa Bueno,"Rua Benedito Lázaro, Jardim Maria José",Educação,-23.539023,-47.4645572,,
+CMEI Professora Flávia Regina Leite do Canto Morrinho Viana,"Rua Mercedes Nardi Arcuri, Jardim Clarice",Educação,-23.5510045,-47.464447,,
+CMEI Francisco Rodrigues Benedito,"Rua Mário Lázaro, Jardim Primavera",Educação,-23.5445336,-47.5062085,,
+CMEI Geraldo Bernardino Santos,"Rua Zacarias Monteiro de Souza, Jardim São Lucas",Educação,-23.5801496,-47.4694003,,
+CMEI Professora Giselle Freitas Xavier,"Rua Sérgio Sales, 10, Barra Funda",Educação,-23.5482025,-47.4353468,,
+CMEI Ismael Pereira de Camargo,"Rua Victório Zanchetta, 2, Promorar",Educação,-23.538331,-47.4107524,,
+CMEI José Bernardo,"Avenida Otaviano de Goes Vieira, 200, Parque São João",Educação,-23.5749018,-47.4538975,,
+CMEI Judith Gazoli Carrara,"Rua Amália Galam, 380, Vila Nova",Educação,-23.5378835,-47.4152738,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Professora Marguerite Guerra,"Rua Jesuíno da Costa, 34, Rio Acima",Educação,-23.5373697,-47.4356741,,
+CMEI Maria José Silva Oliveira,"Rua João Santiago Figueira, 172, Itapeva",Educação,-23.5636279,-47.4491542,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Mercedes Nardi Arcuri,"Rua Júlia Martins Domingues, 95, Vossoroca",Educação,-23.5479123,-47.4509888,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
+CMEI Odair Cau,"Avenida Isabel Ferreira Coelho, Vila Garcia",Educação,-23.5303613,-47.4296146,,
+CMEI Teresa Esquitini,"Rua José Raimundo da Silva, Green Valley",Educação,-23.5603528,-47.4919883,,
+CMEI Tomaz Mobile Neto,"Rua Oscarlina Tegami, 2101, Jardim Simone",Educação,,,,[coordenada aproximada/pendente: NAO ENCONTRADO - preencher manualmente]
+CMEI Virma Gali,"Rua Antônio Telles, Jardim Toledo",Educação,-23.5291031,-47.4419235,,
+CMEI Maria José de Oliveira Silva,"Rua Mário Savella, Vila Nova",Educação,-23.5378162,-47.4187759,,
+CMEI Olímpia Pozza Beber,"Rua Victorino Zanchetta, 225, Promorar",Educação,-23.5384972,-47.4084417,,[coordenada aproximada/pendente: baixa (centroide do bairro)]
