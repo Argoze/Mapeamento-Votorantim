@@ -99,6 +99,53 @@ html.a11y-alto-contraste *:focus-visible {
   outline-offset: 2px !important;
 }
 
+/* Espaçamento de texto ampliado: ajuda leitura para dislexia e baixa visão. */
+html.a11y-espacamento-aumentado body {
+  line-height: 1.9 !important;
+  letter-spacing: 0.02em !important;
+  word-spacing: 0.18em !important;
+}
+html.a11y-espacamento-aumentado p,
+html.a11y-espacamento-aumentado li,
+html.a11y-espacamento-aumentado span,
+html.a11y-espacamento-aumentado a {
+  line-height: 1.9 !important;
+  word-spacing: 0.18em !important;
+}
+
+/* Destacar links: sublinhado forte + fundo, para quem tem dificuldade em
+   distinguir links de texto comum só pela cor. */
+html.a11y-destacar-links a:not(.skip-link) {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 2px !important;
+  background: #fef08a !important;
+  color: #1e293b !important;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 600 !important;
+}
+
+/* Ocultar imagens: reduz ruído visual e carga cognitiva; o conteúdo textual
+   da página continua completo sem elas. */
+html.a11y-ocultar-imagens img {
+  display: none !important;
+}
+
+/* Guia de leitura: barra que acompanha o cursor, renderizada pelo componente
+   AccessibilityToolbar (não depende só de CSS, precisa da posição do mouse). */
+.a11y-guia-leitura-barra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2.5rem;
+  background: rgba(250, 204, 21, 0.22);
+  border-top: 2px solid rgba(202, 138, 4, 0.6);
+  border-bottom: 2px solid rgba(202, 138, 4, 0.6);
+  pointer-events: none;
+  z-index: 1500;
+}
+
 /* ===== GLASS MORPHISM ===== */
 
 .glass-panel {
@@ -183,6 +230,20 @@ html.a11y-alto-contraste *:focus-visible {
 @keyframes badgePulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
   50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+/* Pin do local selecionado no mapa: "pousa" com uma leve animação de queda,
+   como o marcador vermelho do Google Maps quando você clica num resultado —
+   assim fica óbvio qual local foi clicado mesmo entre vários pins juntos. */
+@keyframes markerDrop {
+  0% { transform: translateY(-26px) scale(0.85); opacity: 0; }
+  60% { transform: translateY(3px) scale(1.05); opacity: 1; }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.custom-marker-selecionado-pin {
+  animation: markerDrop 0.35s ease-out;
+  transform-origin: bottom center;
 }
 
 .animate-fade-in {

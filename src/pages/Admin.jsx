@@ -13,7 +13,6 @@ import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
-import StatsCard from '../components/StatsCard';
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
 
 // Tempo relativo simples (ex.: "há 3h", "há 2 dia(s)") para a atividade recente do dashboard.
@@ -856,12 +855,6 @@ export default function Admin() {
 
             {/* Panel: Dashboard */}
             {activePanel === 'dashboard' && (() => {
-              const statsUnidades = {
-                ubs: adminUnidades.filter(u => !u.nome.toLowerCase().includes('esf') && !u.nome.toLowerCase().includes('hospital') && !u.nome.toLowerCase().includes('upa')).length,
-                esf: adminUnidades.filter(u => u.nome.toLowerCase().includes('esf')).length,
-                hospital: adminUnidades.filter(u => u.nome.toLowerCase().includes('hospital')).length,
-                upa: adminUnidades.filter(u => u.nome.toLowerCase().includes('upa')).length,
-              };
 
               const atividadeRecente = [
                 ...adminUnidades.map(u => ({ id: `unidade-${u.id}`, tipo: 'Unidade', titulo: u.nome, criado_em: u.criado_em, cor: 'bg-indigo-500', icon: Building2, painel: 'gerenciar_unidades' })),
@@ -933,13 +926,7 @@ export default function Admin() {
                       </div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <StatsCard icon={Building2} value={statsUnidades.ubs} label="UBS" color="indigo" delay={0} />
-                          <StatsCard icon={Building2} value={statsUnidades.esf} label="ESF" color="green" delay={100} />
-                          <StatsCard icon={Building2} value={statsUnidades.hospital} label="Hospital" color="red" delay={200} />
-                          <StatsCard icon={Building2} value={statsUnidades.upa} label="UPA" color="orange" delay={300} />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
                             <span className="text-sm font-semibold text-slate-600">Total de unidades</span>
                             <span className="text-lg font-extrabold text-slate-800">{adminUnidades.length}</span>

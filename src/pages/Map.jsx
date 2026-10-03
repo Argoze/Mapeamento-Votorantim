@@ -4,15 +4,15 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
 import {
-  Search, Navigation, Building2, Stethoscope, Cross, Siren,
-  Filter, Heart, Share2, Info, ChevronDown, ChevronUp, Phone, ShieldAlert
+  Search, Navigation, Building2,
+  Filter, Heart, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import StatsCard from '../components/StatsCard';
 import NewsCarousel from '../components/NewsCarousel';
 import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
+import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
 
 // Corrige o ícone padrão do Leaflet no React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -22,7 +22,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Ícones customizados por tipo de unidade
+// Ícones customizados por tipo de unidade (o "pin gota" colorido com o emoji
+// da categoria, usado em todo o mapa fora do local selecionado).
 function createCustomIcon(color, emoji) {
   return L.divIcon({
     className: 'custom-marker',
@@ -41,36 +42,55 @@ function createCustomIcon(color, emoji) {
   });
 }
 
-const iconUBS = createCustomIcon('#2563eb', '🏥');
-const iconESF = createCustomIcon('#059669', '💚');
-const iconHospital = createCustomIcon('#dc2626', '🏨');
-const iconUPA = createCustomIcon('#f59e0b', '🚑');
-const iconEducacao = createCustomIcon('#7c3aed', '🎓');
-const iconCultura = createCustomIcon('#db2777', '🎭');
-const iconGoverno = createCustomIcon('#475569', '🏛️');
-const iconLazer = createCustomIcon('#16a34a', '🌳');
-const iconBiblioteca = createCustomIcon('#0891b2', '📚');
+// Pin do local selecionado: troca de forma para o clássico marcador vermelho
+// (o mesmo desenho usado pelo Google Maps), em vez de só aumentar o pin da
+// categoria — assim fica claro, à primeira vista, qual local foi clicado.
+function createSelectedIcon() {
+  return L.divIcon({
+    className: 'custom-marker-selecionado',
+    html: `<div class="custom-marker-selecionado-pin">
+      <svg width="40" height="54" viewBox="0 0 40 54" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
+        <path d="M20 0C8.95 0 0 8.95 0 20c0 15 20 34 20 34s20-19 20-34C40 8.95 31.05 0 20 0z" fill="#EA4335"/>
+        <circle cx="20" cy="20" r="7.5" fill="#ffffff"/>
+      </svg>
+    </div>`,
+    iconSize: [40, 54],
+    iconAnchor: [20, 54],
+    popupAnchor: [0, -54],
+  });
+}
+
+const EMOJI_POR_TIPO = {
+  UBS: { color: '#2563eb', emoji: '🏥' },
+  ESF: { color: '#059669', emoji: '💚' },
+  Hospital: { color: '#dc2626', emoji: '🏨' },
+  UPA: { color: '#f59e0b', emoji: '🚑' },
+  Educação: { color: '#7c3aed', emoji: '🎓' },
+  Cultura: { color: '#db2777', emoji: '🎭' },
+  Governo: { color: '#475569', emoji: '🏛️' },
+  Lazer: { color: '#16a34a', emoji: '🌳' },
+  Biblioteca: { color: '#0891b2', emoji: '📚' },
+};
 
 // Unidades de saúde (categoria "Saúde") continuam sendo sub-classificadas por
 // nome (UBS/ESF/Hospital/UPA), como sempre foi. As demais categorias de locais
 // públicos (Educação, Cultura, Governo, Lazer, Biblioteca) usam a própria
-// categoria como "tipo", sem essa sub-classificação.
-function getUnitIcon(unidade) {
+// categoria como "tipo", sem essa sub-classificação. Quando `selecionado` é
+// true, o ícone da categoria dá lugar ao pin vermelho de destaque.
+function getUnitIcon(unidade, selecionado = false) {
+  if (selecionado) return createSelectedIcon();
+
   const categoria = unidade.categoria || 'Saúde';
-  if (categoria !== 'Saúde') {
-    return {
-      'Educação': iconEducacao,
-      'Cultura': iconCultura,
-      'Governo': iconGoverno,
-      'Lazer': iconLazer,
-      'Biblioteca': iconBiblioteca,
-    }[categoria] || iconGoverno;
+  let tipo = categoria;
+  if (categoria === 'Saúde') {
+    const n = unidade.nome.toLowerCase();
+    if (n.includes('hospital')) tipo = 'Hospital';
+    else if (n.includes('upa')) tipo = 'UPA';
+    else if (n.includes('esf')) tipo = 'ESF';
+    else tipo = 'UBS';
   }
-  const n = unidade.nome.toLowerCase();
-  if (n.includes('hospital')) return iconHospital;
-  if (n.includes('upa')) return iconUPA;
-  if (n.includes('esf')) return iconESF;
-  return iconUBS;
+  const { color, emoji } = EMOJI_POR_TIPO[tipo] || EMOJI_POR_TIPO.Governo;
+  return createCustomIcon(color, emoji);
 }
 
 function getUnitType(unidade) {
@@ -155,13 +175,27 @@ function buildWhatsAppShareUrl(unidade) {
 }
 
 // Componente auxiliar para ajustar o mapa
-function MapController({ center, zoom }) {
+function MapController({ center, zoom, deslocarComPainel }) {
   const map = useMap();
   useEffect(() => {
-    if (center) {
-      map.setView(center, zoom, { animate: true, duration: 1.2 });
+    if (!center) return;
+
+    let alvo = L.latLng(center[0], center[1]);
+
+    // Quando o painel de detalhes está aberto, ele ocupa a faixa esquerda do
+    // mapa (em telas maiores). Se centralizarmos o pin exatamente no meio do
+    // mapa, ele fica escondido atrás do painel. Por isso, deslocamos o centro
+    // "de câmera" para a esquerda, o que empurra o pin visualmente para a
+    // direita — a parte do mapa que continua visível ao lado do painel.
+    if (deslocarComPainel && window.innerWidth >= 640) {
+      const PAINEL_DESLOCAMENTO_PX = 190;
+      const pontoAlvo = map.project(alvo, zoom);
+      const pontoDeslocado = L.point(pontoAlvo.x - PAINEL_DESLOCAMENTO_PX, pontoAlvo.y);
+      alvo = map.unproject(pontoDeslocado, zoom);
     }
-  }, [center, zoom, map]);
+
+    map.setView(alvo, zoom, { animate: true, duration: 1.2 });
+  }, [center, zoom, deslocarComPainel, map]);
   return null;
 }
 
@@ -182,9 +216,7 @@ export default function Map() {
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   const [favoritos, setFavoritos] = useState(loadFavoritos);
   const [showLegenda, setShowLegenda] = useState(false);
-
-  // Botão de urgência
-  const [urgenciaLoading, setUrgenciaLoading] = useState(false);
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState(null);
 
   useEffect(() => {
     async function fetchUnidades() {
@@ -240,8 +272,7 @@ export default function Map() {
     const abrir = () => {
       setCenter([unidade.lat, unidade.lng]);
       setZoom(zoomAlvo);
-      const marker = markerRefs.current[unidade.id];
-      if (marker) marker.openPopup();
+      setUnidadeSelecionada(unidade);
     };
     if (delay > 0) setTimeout(abrir, delay);
     else abrir();
@@ -332,57 +363,6 @@ export default function Map() {
     );
   };
 
-  // Botão de urgência: localiza e abre direto o Hospital/UPA mais próximo.
-  const handleUrgencia = () => {
-    if (!navigator.geolocation) {
-      setError('Seu navegador não suporta localização automática. Busque pelo endereço para encontrar o Hospital/UPA mais próximo. Em caso de risco de vida, ligue 192 (SAMU).');
-      return;
-    }
-
-    setUrgenciaLoading(true);
-    setError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const userLat = position.coords.latitude;
-        const userLon = position.coords.longitude;
-
-        setCenter([userLat, userLon]);
-        setZoom(14);
-        setQuery('Minha localização atual');
-        setUserLocation([userLat, userLon]);
-        setTipoFiltro('Todos'); // garante que o resultado (Hospital/UPA) fique visível mesmo se outro filtro estava ativo
-
-        const urgentes = unidades
-          .filter(u => ['Hospital', 'UPA'].includes(getUnitType(u).label))
-          .map(u => ({ ...u, distancia: calcularDistancia(userLat, userLon, u.lat, u.lng) }))
-          .sort((a, b) => a.distancia - b.distancia);
-
-        setUnidadesProximas(urgentes);
-
-        if (urgentes.length > 0) {
-          focarUnidade(urgentes[0], 16, 1200);
-        } else {
-          setError('Nenhum Hospital/UPA cadastrado ainda nesta base. Em caso de risco de vida, ligue 192 (SAMU).');
-        }
-        setUrgenciaLoading(false);
-      },
-      () => {
-        setError('Não foi possível obter sua localização automaticamente. Habilite a permissão de localização do navegador ou use a busca por endereço. Em caso de risco de vida, ligue 192 (SAMU) — não espere pelo aplicativo.');
-        setUrgenciaLoading(false);
-      }
-    );
-  };
-
-  // Contadores de unidades por tipo
-  const unidadesSaude = unidades.filter(u => (u.categoria || 'Saúde') === 'Saúde');
-  const stats = {
-    ubs: unidadesSaude.filter(u => !u.nome.toLowerCase().includes('esf') && !u.nome.toLowerCase().includes('hospital') && !u.nome.toLowerCase().includes('upa')).length,
-    esf: unidadesSaude.filter(u => u.nome.toLowerCase().includes('esf')).length,
-    hospital: unidadesSaude.filter(u => u.nome.toLowerCase().includes('hospital')).length,
-    upa: unidadesSaude.filter(u => u.nome.toLowerCase().includes('upa')).length,
-  };
-
   const contadorFiltro = (f) => {
     if (f === 'Todos') return unidades.length;
     if (f === 'Favoritos') return favoritos.length;
@@ -410,32 +390,6 @@ export default function Map() {
 
         {/* News Carousel */}
         {noticias.length > 0 && <NewsCarousel noticias={noticias} />}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          <StatsCard icon={Building2} value={stats.ubs} label="UBS" color="blue" delay={0} />
-          <StatsCard icon={Stethoscope} value={stats.esf} label="ESF" color="green" delay={100} />
-          <StatsCard icon={Cross} value={stats.hospital} label="Hospital" color="red" delay={200} />
-          <StatsCard icon={Siren} value={stats.upa} label="UPA" color="orange" delay={300} />
-        </div>
-
-        {/* Botão de urgência */}
-        <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <button
-            id="btn-urgencia"
-            onClick={handleUrgencia}
-            disabled={urgenciaLoading}
-            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            <ShieldAlert size={20} />
-            {urgenciaLoading ? 'Localizando UPA/Hospital mais próximo...' : 'Preciso de atendimento agora'}
-          </button>
-          <p className="text-xs text-slate-500 mt-2 flex items-start gap-1.5 max-w-xl">
-            <Info size={13} className="mt-0.5 flex-shrink-0" />
-            Este botão só indica o Hospital/UPA mais próximo. Em caso de risco de vida, ligue{' '}
-            <a href="tel:192" className="font-bold text-red-600 hover:underline">192 (SAMU)</a> imediatamente.
-          </p>
-        </div>
 
         {/* Search Bar */}
         <div className="glass-panel p-5 sm:p-6 rounded-2xl shadow-lg border border-white/50 mb-6 animate-slide-up" style={{ animationDelay: '0.15s' }}>
@@ -538,7 +492,7 @@ export default function Map() {
                 attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
                 url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               />
-              <MapController center={center} zoom={zoom} />
+              <MapController center={center} zoom={zoom} deslocarComPainel={!!unidadeSelecionada} />
 
               {userLocation && (
                 <CircleMarker center={userLocation} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.4, weight: 3 }} radius={12}>
@@ -551,74 +505,35 @@ export default function Map() {
               )}
 
               {unidadesFiltradas.map(unidade => {
-                const isFavorito = favoritos.includes(unidade.id);
+                const isSelecionada = unidadeSelecionada?.id === unidade.id;
                 return (
                   <Marker
                     key={unidade.id}
                     position={[unidade.lat, unidade.lng]}
-                    icon={getUnitIcon(unidade)}
+                    icon={getUnitIcon(unidade, isSelecionada)}
+                    zIndexOffset={isSelecionada ? 1000 : 0}
                     ref={(el) => {
                       if (el) {
                         markerRefs.current[unidade.id] = el;
                       }
                     }}
-                  >
-                    <Popup>
-                      <div className="min-w-[210px]">
-                        {unidade.imagens && unidade.imagens.length > 0 && (
-                          <img src={unidade.imagens[0]} alt={unidade.nome} style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }} />
-                        )}
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${badgeClass(getUnitType(unidade).color)}`}>
-                            {getUnitType(unidade).label}
-                          </span>
-                          <button
-                            onClick={() => toggleFavorito(unidade.id)}
-                            className="text-slate-300 hover:text-red-500 transition-colors"
-                            title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
-                            aria-label={isFavorito ? `Remover ${unidade.nome} dos favoritos` : `Favoritar ${unidade.nome}`}
-                            aria-pressed={isFavorito}
-                          >
-                            <Heart size={16} className={isFavorito ? 'fill-red-500 text-red-500' : ''} />
-                          </button>
-                        </div>
-                        <p className="font-bold text-slate-800 text-sm">{unidade.nome}</p>
-                        <p className="text-slate-500 text-xs mt-0.5">{unidade.endereco}</p>
-                        <div className="mt-2 flex items-center gap-3 flex-wrap">
-                          <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${unidade.lat},${unidade.lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
-                          >
-                            <Navigation size={12} />
-                            Como chegar
-                          </a>
-                          <a
-                            href={buildWhatsAppShareUrl(unidade)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition-colors"
-                          >
-                            <Share2 size={12} />
-                            Compartilhar
-                          </a>
-                          {unidade.telefone && (
-                            <a
-                              href={`tel:${unidade.telefone}`}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-800 transition-colors"
-                            >
-                              <Phone size={12} />
-                              Ligar
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
+                    eventHandlers={{
+                      click: () => focarUnidade(unidade, 16, 0),
+                    }}
+                  />
                 );
               })}
             </MapContainer>
+
+            <UnidadeDetalheModal
+              unidade={unidadeSelecionada}
+              tipoInfo={unidadeSelecionada ? getUnitType(unidadeSelecionada) : { label: '', color: 'blue' }}
+              badgeClass={badgeClass}
+              isFavorito={unidadeSelecionada ? favoritos.includes(unidadeSelecionada.id) : false}
+              onToggleFavorito={toggleFavorito}
+              buildWhatsAppShareUrl={buildWhatsAppShareUrl}
+              onClose={() => setUnidadeSelecionada(null)}
+            />
           </div>
 
           {/* Sidebar */}
