@@ -126,6 +126,24 @@ function badgeClass(color) {
   return map[color] || 'bg-blue-500';
 }
 
+// ---------- Fundo do mapa (tiles) ----------
+// A CARTO passou a exigir uma API key gratuita para o endpoint de tiles
+// (basemaps.cartocdn.com) — sem isso, aparecia "API KEY REQUIRED" no lugar do
+// mapa. A chave é gratuita (até 5 milhões de requisições/mês para uso
+// acadêmico/não-comercial) e pode ser pedida em https://carto.com/basemaps/apikey
+// (chega por e-mail em minutos, sem precisar criar conta). Depois de pedir,
+// coloque a chave no arquivo .env do projeto como:
+//   VITE_CARTO_API_KEY=sua_chave_aqui
+// Sem essa variável configurada, o mapa cai automaticamente para o
+// OpenStreetMap (gratuito, sem chave) em vez de quebrar.
+const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY;
+const TILE_URL = CARTO_API_KEY
+  ? `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`
+  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTRIBUTION = CARTO_API_KEY
+  ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attribution/">CARTO</a>'
+  : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
 // ---------- Favoritos (persistidos no navegador, sem exigir login do cidadão) ----------
 
 const FAVORITOS_KEY = 'votorantim-saude-favoritos';
@@ -489,8 +507,8 @@ export default function Map() {
           <div className="lg:col-span-2 glass-panel p-2 rounded-2xl shadow-lg border border-white/50 relative">
             <MapContainer center={center} zoom={zoom} style={{ height: '550px', width: '100%', borderRadius: '16px' }}>
               <TileLayer
-                attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution={TILE_ATTRIBUTION}
+                url={TILE_URL}
               />
               <MapController center={center} zoom={zoom} deslocarComPainel={!!unidadeSelecionada} />
 
