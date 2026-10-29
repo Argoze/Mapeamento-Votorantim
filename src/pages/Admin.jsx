@@ -7,7 +7,7 @@ import {
   MapPin, Loader2, Star, Eye, Building2,
   Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
-  History
+  History, MessageSquareWarning, CheckCheck, Ban, ChevronDown
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -123,6 +123,13 @@ export default function Admin() {
   const [auditoriaErro, setAuditoriaErro] = useState(null);
   const [auditoriaFiltro, setAuditoriaFiltro] = useState('Todos');
 
+  // Correções reportadas pelos cidadãos
+  const [correcoes, setCorrecoes] = useState([]);
+  const [correcoesLoading, setCorrecoesLoading] = useState(true);
+  const [correcoesErro, setCorrecoesErro] = useState(null);
+  const [correcoesFiltro, setCorrecoesFiltro] = useState('pendente');
+  const [moderandoId, setModerandoId] = useState(null);
+
   // Toast
   const [toast, setToast] = useState(null);
 
@@ -149,6 +156,7 @@ export default function Admin() {
     fetchNoticias();
     fetchUnidades();
     fetchAuditoria();
+    fetchCorrecoes();
   }, []);
 
   async function fetchAuditoria() {
@@ -169,6 +177,51 @@ export default function Admin() {
       setAuditoria(data || []);
     }
     setAuditoriaLoading(false);
+  }
+
+  async function fetchCorrecoes() {
+    setCorrecoesLoading(true);
+    setCorrecoesErro(null);
+    const { data, error } = await supabase
+      .from('correcoes')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      setCorrecoesErro('A tabela de correções ainda não existe. Execute o script correcoes_setup.sql no SQL Editor do Supabase.');
+      setCorrecoes([]);
+    } else {
+      setCorrecoes(data || []);
+    }
+    setCorrecoesLoading(false);
+  }
+
+  async function handleModerarCorrecao(id, novoStatus) {
+    setModerandoId(id);
+    try {
+      const { error } = await supabase
+        .from('correcoes')
+        .update({
+          status: novoStatus,
+          moderado_por: currentUser.id,
+          moderado_em: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+      setToast({
+        message: novoStatus === 'aprovado'
+          ? 'Correção marcada como aprovada. Lembre-se de editar a unidade com a informação correta.'
+          : 'Correção descartada.',
+        type: novoStatus === 'aprovado' ? 'success' : 'info',
+      });
+      fetchCorrecoes();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: 'Erro ao moderar: ' + err.message, type: 'error' });
+    } finally {
+      setModerandoId(null);
+    }
   }
 
   async function fetchEventos() {
@@ -719,6 +772,12 @@ export default function Admin() {
     { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : 'Adicionar Unidade', icon: editingUnidadeId ? Pencil : Building2 },
     { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
     { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
+    {
+      id: 'correcoes',
+      label: 'Correções do Cidadão',
+      icon: MessageSquareWarning,
+      badge: correcoes.filter(c => c.status === 'pendente').length || null,
+    },
     { id: 'usuarios', label: 'Cadastrar Usuário', icon: Users },
     { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
   ];
@@ -792,7 +851,7 @@ export default function Admin() {
         {/* Sidebar - Desktop */}
         <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 min-h-[calc(100vh-64px)] fixed left-0 top-16 p-4">
           <div className="flex flex-col gap-1 flex-1">
-            {sidebarLinks.map(({ id, label, icon: Icon }) => (
+            {sidebarLinks.map(({ id, label, icon: Icon, badge }) => (
               <button
                 key={id}
                 onClick={() => setActivePanel(id)}
@@ -803,7 +862,12 @@ export default function Admin() {
                 }`}
               >
                 <Icon size={18} />
-                {label}
+                <span className="flex-1">{label}</span>
+                {badge ? (
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {badge}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -824,11 +888,11 @@ export default function Admin() {
 
         {/* Mobile Navigation Tabs */}
         <div className="lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-slate-200 z-30 flex overflow-x-auto">
-          {sidebarLinks.map(({ id, label, icon: Icon }) => (
+          {sidebarLinks.map(({ id, label, icon: Icon, badge }) => (
             <button
               key={id}
               onClick={() => setActivePanel(id)}
-              className={`flex-shrink-0 flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${
+              className={`flex-shrink-0 relative flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${
                 activePanel === id
                   ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
                   : 'border-transparent text-slate-500'
@@ -836,6 +900,11 @@ export default function Admin() {
             >
               <Icon size={16} />
               <span className="hidden sm:inline">{label}</span>
+              {badge ? (
+                <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {badge}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -1042,6 +1111,32 @@ export default function Admin() {
                       })}
                     </div>
                   </div>
+
+                  {/* Correcoes do Cidadao pendentes */}
+                  {!correcoesLoading && !correcoesErro && correcoes.filter(c => c.status === 'pendente').length > 0 && (
+                    <div className="glass-panel rounded-2xl shadow-sm border border-amber-200 bg-amber-50 overflow-hidden">
+                      <div className="flex items-center gap-3 p-5 sm:p-6">
+                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <MessageSquareWarning className="text-amber-600" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-amber-800">
+                            {correcoes.filter(c => c.status === 'pendente').length} correção(ões) do cidadão aguardando revisão
+                          </p>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Cidadãos sinalizaram informações potencialmente incorretas no mapa público.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActivePanel('correcoes')}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                        >
+                          Revisar <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -1872,7 +1967,180 @@ export default function Admin() {
               </div>
             )}
 
+            {/* Panel: Correções do Cidadão */}
+            {activePanel === 'correcoes' && (() => {
+              const CAMPO_LABEL = {
+                endereco: 'Endereço',
+                telefone: 'Telefone',
+                horario:  'Horário de funcionamento',
+                outro:    'Outro',
+              };
+              const STATUS_ESTILO = {
+                pendente:   { label: 'Pendente',   cor: 'bg-amber-100 text-amber-700' },
+                aprovado:   { label: 'Aprovado',   cor: 'bg-emerald-100 text-emerald-700' },
+                descartado: { label: 'Descartado', cor: 'bg-slate-100 text-slate-500' },
+              };
+              const filtros = ['pendente', 'aprovado', 'descartado'];
+              const registrosFiltrados = correcoes.filter(c => c.status === correcoesFiltro);
+              const totalPendente = correcoes.filter(c => c.status === 'pendente').length;
+
+              return (
+                <div className="animate-fade-in">
+                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                      <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                        <MessageSquareWarning className="text-amber-600" size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800">Correções do Cidadão</h2>
+                        <p className="text-sm text-slate-500">
+                          Relatos de informações incorretas enviados pelo público.
+                          {totalPendente > 0 && (
+                            <span className="ml-1.5 inline-flex items-center gap-1 text-amber-600 font-semibold">
+                              <AlertTriangle size={12} /> {totalPendente} pendente(s)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {correcoesErro ? (
+                      <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm flex items-start gap-2">
+                        <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Configuração necessária:</strong> {correcoesErro}
+                        </div>
+                      </div>
+                    ) : correcoesLoading ? (
+                      <div className="text-center py-10 text-slate-500">
+                        <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                        Carregando relatos...
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-2 mb-5">
+                          {filtros.map(f => (
+                            <button
+                              key={f}
+                              type="button"
+                              onClick={() => setCorrecoesFiltro(f)}
+                              aria-pressed={correcoesFiltro === f}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                correcoesFiltro === f
+                                  ? 'bg-slate-800 text-white shadow-sm'
+                                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {STATUS_ESTILO[f].label} ({correcoes.filter(c => c.status === f).length})
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={fetchCorrecoes}
+                            className="ml-auto px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-all"
+                          >
+                            ↻ Atualizar
+                          </button>
+                        </div>
+
+                        {registrosFiltrados.length === 0 ? (
+                          <div className="text-center py-12">
+                            <div className="text-4xl mb-3">{correcoesFiltro === 'pendente' ? '✅' : '🗒️'}</div>
+                            <p className="text-slate-500 font-medium">
+                              {correcoesFiltro === 'pendente'
+                                ? 'Nenhum relato pendente de moderação!'
+                                : `Nenhum relato ${STATUS_ESTILO[correcoesFiltro].label.toLowerCase()} ainda.`}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+                            {registrosFiltrados.map(correcao => {
+                              const isModerating = moderandoId === correcao.id;
+                              return (
+                                <div
+                                  key={correcao.id}
+                                  className={`border rounded-xl p-4 transition-all ${
+                                    correcao.status === 'pendente'
+                                      ? 'border-amber-200 bg-amber-50/40'
+                                      : correcao.status === 'aprovado'
+                                        ? 'border-emerald-100 bg-emerald-50/30'
+                                        : 'border-slate-100 bg-white opacity-70'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3 mb-2.5">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_ESTILO[correcao.status].cor}`}>
+                                        {STATUS_ESTILO[correcao.status].label}
+                                      </span>
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                        {CAMPO_LABEL[correcao.campo] || correcao.campo}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 flex-shrink-0">{tempoRelativo(correcao.criado_em)}</span>
+                                  </div>
+
+                                  <p className="text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                                    <MapPin size={11} className="text-indigo-400 flex-shrink-0" />
+                                    {correcao.unidade_nome || <em className="text-slate-400 font-normal">unidade não identificada</em>}
+                                  </p>
+
+                                  <p className="text-sm text-slate-800 leading-relaxed bg-white border border-slate-100 rounded-lg px-3 py-2.5 mb-3">
+                                    {correcao.descricao}
+                                  </p>
+
+                                  {correcao.status === 'pendente' ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <button
+                                        type="button"
+                                        disabled={isModerating}
+                                        onClick={() => handleModerarCorrecao(correcao.id, 'aprovado')}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold transition-colors"
+                                      >
+                                        {isModerating ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />}
+                                        Aprovar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={isModerating}
+                                        onClick={() => handleModerarCorrecao(correcao.id, 'descartado')}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 disabled:opacity-60 text-slate-600 text-xs font-bold transition-colors"
+                                      >
+                                        {isModerating ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
+                                        Descartar
+                                      </button>
+                                      {correcao.unidade_id && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const u = adminUnidades.find(x => x.id === correcao.unidade_id);
+                                            if (u) handleEditUnidade(u);
+                                          }}
+                                          className="ml-auto flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+                                        >
+                                          Editar unidade <ArrowRight size={11} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-slate-400">
+                                      {correcao.status === 'aprovado' ? '✔ Aprovado' : '✖ Descartado'}
+                                      {correcao.moderado_em && ` · ${tempoRelativo(correcao.moderado_em)}`}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Panel: Trilha de Auditoria */}
+
             {activePanel === 'auditoria' && (() => {
               const ENTIDADE_LABEL = {
                 evento: 'Evento',
@@ -1967,6 +2235,32 @@ export default function Admin() {
                       </>
                     )}
                   </div>
+
+                  {/* Correcoes do Cidadao pendentes */}
+                  {!correcoesLoading && !correcoesErro && correcoes.filter(c => c.status === 'pendente').length > 0 && (
+                    <div className="glass-panel rounded-2xl shadow-sm border border-amber-200 bg-amber-50 overflow-hidden">
+                      <div className="flex items-center gap-3 p-5 sm:p-6">
+                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <MessageSquareWarning className="text-amber-600" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-amber-800">
+                            {correcoes.filter(c => c.status === 'pendente').length} correcao(oes) do cidadao aguardando revisao
+                          </p>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Cidadaos sinalizaram informacoes potencialmente incorretas no mapa publico.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActivePanel('correcoes')}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                        >
+                          Revisar <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Navigation, Share2, Phone, Heart, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import ReportarCorrecaoModal from './ReportarCorrecaoModal';
 
 // Painel de detalhes de uma unidade/local, aberto ao clicar no marcador do mapa.
 // Fica ao lado do mapa (como no Google Maps), ocupando a coluna esquerda do
@@ -151,6 +152,9 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
             </span>
           )}
         </div>
+
+        {/* Canal de correção: cidadão pode sinalizar informação errada */}
+        <ReportarCorrecaoModal unidade={unidade} />
       </div>
     </div>
   );
