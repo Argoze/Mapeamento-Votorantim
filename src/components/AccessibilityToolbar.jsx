@@ -4,17 +4,6 @@ import {
   AlignJustify, Link2, ScanEye, ImageOff,
 } from 'lucide-react';
 
-// Painel flutuante de acessibilidade para as páginas públicas (cidadão).
-// Frentes cobertas aqui, conforme e-MAG e WCAG (W3C):
-//  - Tamanho de fonte ajustável (3 níveis, persistido no navegador).
-//  - Alto contraste (persistido no navegador).
-//  - Espaçamento de texto ampliado (linhas/palavras) — ajuda dislexia e baixa visão.
-//  - Destacar links — para quem tem dificuldade de distinguir link de texto comum.
-//  - Guia de leitura — barra que acompanha o cursor, ajuda déficit de atenção.
-//  - Ocultar imagens — reduz ruído visual e carga cognitiva.
-// Todos operáveis 100% pelo teclado, com rótulos (aria-label) para leitor de tela,
-// e todas as preferências persistem no navegador (localStorage).
-
 const FONT_KEY = 'votorantim-a11y-fonte';
 const CONTRASTE_KEY = 'votorantim-a11y-contraste';
 const ESPACAMENTO_KEY = 'votorantim-a11y-espacamento';
@@ -62,7 +51,6 @@ export default function AccessibilityToolbar() {
   const botaoRef = useRef(null);
   const guiaBarraRef = useRef(null);
 
-  // Aplica as classes no <html> para que valham para o site inteiro, não só este componente.
   useEffect(() => {
     const root = document.documentElement;
     Object.values(CLASSE_POR_NIVEL).forEach(c => c && root.classList.remove(c));
@@ -71,7 +59,6 @@ export default function AccessibilityToolbar() {
     try {
       localStorage.setItem(FONT_KEY, nivelFonte);
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
     }
   }, [nivelFonte]);
 
@@ -81,19 +68,16 @@ export default function AccessibilityToolbar() {
     try {
       localStorage.setItem(CONTRASTE_KEY, altoContraste ? '1' : '0');
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
+
     }
   }, [altoContraste]);
 
-  // Persiste e aplica cada preferência booleana simples (espaçamento, links, imagens)
-  // via classe no <html>, seguindo o mesmo padrão do alto contraste.
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('a11y-espacamento-aumentado', espacamentoAumentado);
     try {
       localStorage.setItem(ESPACAMENTO_KEY, espacamentoAumentado ? '1' : '0');
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
     }
   }, [espacamentoAumentado]);
 
@@ -103,7 +87,6 @@ export default function AccessibilityToolbar() {
     try {
       localStorage.setItem(DESTACAR_LINKS_KEY, destacarLinks ? '1' : '0');
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
     }
   }, [destacarLinks]);
 
@@ -113,17 +96,13 @@ export default function AccessibilityToolbar() {
     try {
       localStorage.setItem(OCULTAR_IMAGENS_KEY, ocultarImagens ? '1' : '0');
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
     }
   }, [ocultarImagens]);
 
-  // Guia de leitura: cria uma barra fixa que acompanha a posição vertical do
-  // cursor, ajudando quem tem déficit de atenção a manter a linha de leitura.
   useEffect(() => {
     try {
       localStorage.setItem(GUIA_LEITURA_KEY, guiaLeitura ? '1' : '0');
     } catch {
-      // localStorage indisponível — preferência não persiste, mas continua aplicada nesta sessão.
     }
 
     if (!guiaLeitura) return;
@@ -149,7 +128,6 @@ export default function AccessibilityToolbar() {
     };
   }, [guiaLeitura]);
 
-  // Fecha o painel com a tecla Esc, devolvendo o foco ao botão que o abriu.
   useEffect(() => {
     if (!aberto) return;
     const handleKeyDown = (e) => {
@@ -232,11 +210,10 @@ export default function AccessibilityToolbar() {
               type="button"
               onClick={() => setAltoContraste(v => !v)}
               aria-pressed={altoContraste}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                altoContraste
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${altoContraste
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 <Contrast size={16} />
@@ -251,11 +228,10 @@ export default function AccessibilityToolbar() {
               type="button"
               onClick={() => setEspacamentoAumentado(v => !v)}
               aria-pressed={espacamentoAumentado}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                espacamentoAumentado
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${espacamentoAumentado
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 <AlignJustify size={16} />
@@ -268,11 +244,10 @@ export default function AccessibilityToolbar() {
               type="button"
               onClick={() => setDestacarLinks(v => !v)}
               aria-pressed={destacarLinks}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                destacarLinks
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${destacarLinks
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 <Link2 size={16} />
@@ -285,11 +260,10 @@ export default function AccessibilityToolbar() {
               type="button"
               onClick={() => setGuiaLeitura(v => !v)}
               aria-pressed={guiaLeitura}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                guiaLeitura
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${guiaLeitura
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 <ScanEye size={16} />
@@ -302,11 +276,10 @@ export default function AccessibilityToolbar() {
               type="button"
               onClick={() => setOcultarImagens(v => !v)}
               aria-pressed={ocultarImagens}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${
-                ocultarImagens
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${ocultarImagens
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               <span className="flex items-center gap-2">
                 <ImageOff size={16} />

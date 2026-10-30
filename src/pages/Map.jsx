@@ -20,7 +20,6 @@ import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
 import IntentionSearchPanel from '../components/IntentionSearchPanel';
 
-// Corrige o ícone padrão do Leaflet no React
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -28,8 +27,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Ícones customizados por tipo de unidade (o "pin gota" colorido com o emoji
-// da categoria, usado em todo o mapa fora do local selecionado).
 function createCustomIcon(color, emoji) {
   return L.divIcon({
     className: 'custom-marker',
@@ -48,9 +45,6 @@ function createCustomIcon(color, emoji) {
   });
 }
 
-// Pin do local selecionado: troca de forma para o clássico marcador vermelho
-// (o mesmo desenho usado pelo Google Maps), em vez de só aumentar o pin da
-// categoria — assim fica claro, à primeira vista, qual local foi clicado.
 function createSelectedIcon() {
   return L.divIcon({
     className: 'custom-marker-selecionado',
@@ -78,11 +72,6 @@ const EMOJI_POR_TIPO = {
   Biblioteca: { color: '#0891b2', emoji: '📚' },
 };
 
-// Unidades de saúde (categoria "Saúde") continuam sendo sub-classificadas por
-// nome (UBS/ESF/Hospital/UPA), como sempre foi. As demais categorias de locais
-// públicos (Educação, Cultura, Governo, Lazer, Biblioteca) usam a própria
-// categoria como "tipo", sem essa sub-classificação. Quando `selecionado` é
-// true, o ícone da categoria dá lugar ao pin vermelho de destaque.
 function getUnitIcon(unidade, selecionado = false) {
   if (selecionado) return createSelectedIcon();
 
@@ -160,7 +149,6 @@ function saveFavoritos(ids) {
   try {
     localStorage.setItem(FAVORITOS_KEY, JSON.stringify(ids));
   } catch {
-    // localStorage indisponível (ex.: modo de navegação privada)
   }
 }
 
@@ -336,9 +324,9 @@ export default function Map() {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -481,16 +469,12 @@ export default function Map() {
     return unidades.filter((u) => getUnitType(u).label === f).length;
   };
 
-  // Lista da barra lateral:
-  // Se o usuário buscou localização/endereço, usa as unidades ordenadas por proximidade;
-  // Se não buscou endereço mas tem intenção ativa, exibe as unidades recomendadas da rede;
-  // Caso contrário, vazio até buscar.
   const listaSidebar =
     unidadesProximas.length > 0
       ? unidadesProximasFiltradas
       : intencaoAtiva && intencaoAtiva.matched
-      ? unidadesFiltradas
-      : [];
+        ? unidadesFiltradas
+        : [];
 
   return (
     <div className="min-h-screen relative overflow-x-hidden bg-slate-50">
@@ -542,11 +526,10 @@ export default function Map() {
                 type="button"
                 onClick={() => setTipoFiltro(f)}
                 aria-pressed={tipoFiltro === f}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                  tipoFiltro === f
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${tipoFiltro === f
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 {f === 'Favoritos' && (
                   <Heart size={13} className={tipoFiltro === f ? 'fill-white' : ''} />
@@ -714,15 +697,13 @@ export default function Map() {
                         key={u.id}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Ver ${u.nome} no mapa${
-                          hasDistancia
-                            ? `, ${
-                                u.distancia < 1
-                                  ? `${(u.distancia * 1000).toFixed(0)} metros`
-                                  : `${u.distancia.toFixed(1)} quilômetros`
-                              } de distância`
+                        aria-label={`Ver ${u.nome} no mapa${hasDistancia
+                            ? `, ${u.distancia < 1
+                              ? `${(u.distancia * 1000).toFixed(0)} metros`
+                              : `${u.distancia.toFixed(1)} quilômetros`
+                            } de distância`
                             : ''
-                        }`}
+                          }`}
                         className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-200 transition-all cursor-pointer animate-slide-up stagger-${Math.min(
                           index + 1,
                           6
@@ -748,11 +729,10 @@ export default function Map() {
                           </div>
                           {hasDistancia && (
                             <span
-                              className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${
-                                index === 0
+                              className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${index === 0
                                   ? 'bg-emerald-100 text-emerald-700'
                                   : 'bg-slate-100 text-slate-600'
-                              }`}
+                                }`}
                             >
                               {u.distancia < 1
                                 ? `${(u.distancia * 1000).toFixed(0)}m`

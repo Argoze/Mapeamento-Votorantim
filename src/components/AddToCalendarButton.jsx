@@ -152,18 +152,16 @@ export default function AddToCalendarButton({ evento, variant = 'default' }) {
             <button
               type="button"
               onClick={handleDownloadIcs}
-              className={`w-full group flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left ${
-                downloaded
+              className={`w-full group flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all text-left ${downloaded
                   ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800 shadow-sm hover:shadow'
-              }`}
+                }`}
             >
               <div
-                className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
-                  downloaded
+                className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${downloaded
                     ? 'bg-emerald-500 text-white'
                     : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {downloaded ? <Check size={20} /> : <Smartphone size={20} />}
               </div>
@@ -226,18 +224,16 @@ export default function AddToCalendarButton({ evento, variant = 'default' }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className={`inline-flex items-center justify-center gap-2 font-semibold transition-all rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-          isCompact
+        className={`inline-flex items-center justify-center gap-2 font-semibold transition-all rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 ${isCompact
             ? 'px-3 py-1.5 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
             : 'px-4 py-2.5 text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white hover:shadow-md'
-        }`}
+          }`}
         title="Adicionar esta data ao seu calendário"
       >
         <CalendarPlus size={isCompact ? 14 : 16} />
         <span>Adicionar ao calendário</span>
       </button>
 
-      {/* Modal renderizado no document.body via Portal — NUNCA cortado por overflow-hidden ou transform */}
       {typeof document !== 'undefined' && createPortal(modalContent, document.body)}
     </>
   );

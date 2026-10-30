@@ -153,8 +153,8 @@ export default function Events() {
               f === 'Todos'
                 ? eventos.length
                 : f === 'Favoritos'
-                ? favoritos.length
-                : eventos.filter((e) => e.tipo === f).length;
+                  ? favoritos.length
+                  : eventos.filter((e) => e.tipo === f).length;
 
             const isSelected = filtro === f;
 
@@ -164,17 +164,16 @@ export default function Events() {
                 type="button"
                 onClick={() => setFiltro(f)}
                 aria-pressed={isSelected}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  isSelected
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${isSelected
                     ? f === 'Urgente'
                       ? 'bg-red-500 text-white shadow-md'
                       : f === 'Informativo'
-                      ? 'bg-blue-500 text-white shadow-md'
-                      : f === 'Favoritos'
-                      ? 'bg-rose-500 text-white shadow-md'
-                      : 'bg-slate-800 text-white shadow-md'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : f === 'Favoritos'
+                          ? 'bg-rose-500 text-white shadow-md'
+                          : 'bg-slate-800 text-white shadow-md'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 {f === 'Favoritos' && (
                   <Heart
@@ -208,15 +207,15 @@ export default function Events() {
                 {filtro === 'Favoritos'
                   ? 'Você ainda não favoritou nenhuma campanha'
                   : filtro === 'Todos'
-                  ? 'Nenhum evento no momento'
-                  : `Nenhum evento "${filtro}" encontrado`}
+                    ? 'Nenhum evento no momento'
+                    : `Nenhum evento "${filtro}" encontrado`}
               </h3>
               <p className="text-slate-500 text-sm max-w-md mx-auto">
                 {filtro === 'Favoritos'
                   ? 'Clique no ícone de coração em qualquer campanha para salvá-la aqui e adicionar lembretes ao seu calendário facilmente.'
                   : filtro === 'Todos'
-                  ? 'A prefeitura não possui campanhas ativas no momento.'
-                  : 'Tente selecionar outro filtro para ver mais resultados.'}
+                    ? 'A prefeitura não possui campanhas ativas no momento.'
+                    : 'Tente selecionar outro filtro para ver mais resultados.'}
               </p>
               {filtro === 'Favoritos' && (
                 <button
@@ -249,7 +248,7 @@ export default function Events() {
   );
 }
 
-// Card de Evento com galeria, favoritos, WhatsApp e botão de adicionar ao calendário
+// Card de Evento
 function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
   const [currentImg, setCurrentImg] = useState(0);
   const hasImages = evento.imagens && evento.imagens.length > 0;
@@ -316,9 +315,8 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
                       }}
                       aria-label={`Ver imagem ${i + 1} de ${evento.imagens.length}`}
                       aria-current={i === currentImg}
-                      className={`h-1.5 rounded-full transition-all ${
-                        i === currentImg ? 'bg-white w-4' : 'bg-white/50 w-1.5'
-                      }`}
+                      className={`h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-white w-4' : 'bg-white/50 w-1.5'
+                        }`}
                     />
                   ))}
                 </div>
@@ -342,11 +340,10 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             aria-label={isFavorito ? `Remover ${evento.titulo} dos favoritos` : `Favoritar ${evento.titulo}`}
             aria-pressed={isFavorito}
             title={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
-            className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
-              hasImages
+            className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${hasImages
                 ? 'bg-white/90 hover:bg-white text-slate-600 shadow-sm'
                 : 'mr-2 mt-2 bg-slate-100 hover:bg-slate-200 text-slate-600'
-            }`}
+              }`}
           >
             <Heart
               size={15}
@@ -356,11 +353,9 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
 
           {/* Badge de tipo */}
           <div
-            className={`text-white text-[10px] font-bold px-3 py-1.5 ${
-              hasImages ? 'rounded-lg shadow-sm' : 'rounded-bl-xl'
-            } uppercase tracking-wider ${
-              evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
-            }`}
+            className={`text-white text-[10px] font-bold px-3 py-1.5 ${hasImages ? 'rounded-lg shadow-sm' : 'rounded-bl-xl'
+              } uppercase tracking-wider ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+              }`}
           >
             {evento.tipo}
           </div>
@@ -379,9 +374,8 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
         <div className={`flex items-start gap-4 ${hasImages ? 'p-5 pb-3' : 'p-5 pt-8 pb-3'}`}>
           {!hasImages && (
             <div
-              className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                evento.tipo === 'Urgente' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
-              }`}
+              className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${evento.tipo === 'Urgente' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                }`}
             >
               {evento.tipo === 'Urgente' ? <ShieldAlert size={24} /> : <Info size={24} />}
             </div>
@@ -428,11 +422,10 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             onClick={() => onToggleFavorito(evento.id)}
             aria-pressed={isFavorito}
             aria-label={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs transition-colors ${
-              isFavorito
+            className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs transition-colors ${isFavorito
                 ? 'bg-rose-50 text-rose-700 border border-rose-200'
                 : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-            }`}
+              }`}
             title={isFavorito ? 'Campanha salva nos favoritos' : 'Salvar nos favoritos'}
           >
             <Heart size={13} className={isFavorito ? 'fill-rose-500 text-rose-500' : ''} />

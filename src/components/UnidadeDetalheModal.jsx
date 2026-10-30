@@ -2,25 +2,14 @@ import { useState, useEffect } from 'react';
 import { X, Navigation, Share2, Phone, Heart, MapPin, ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import ReportarCorrecaoModal from './ReportarCorrecaoModal';
 
-// Painel de detalhes de uma unidade/local, aberto ao clicar no marcador do mapa.
-// Fica ao lado do mapa (como no Google Maps), ocupando a coluna esquerda do
-// cartão do mapa — em vez de um popup pequeno ou um modal flutuando por cima
-// de tudo. Precisa ser renderizado DENTRO do mesmo cartão `relative` que
-// envolve o MapContainer, para se posicionar corretamente com `absolute`.
 export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isFavorito, onToggleFavorito, buildWhatsAppShareUrl, onClose }) {
   const [imagemAtiva, setImagemAtiva] = useState(0);
-  // Guarda qual unidade estava aberta na última renderização, para saber
-  // quando resetar a imagem em destaque sem precisar de um efeito à parte
-  // (ajuste de estado durante a renderização, conforme recomendado pelo React).
   const [unidadeAnteriorId, setUnidadeAnteriorId] = useState(unidade?.id ?? null);
   if (unidade && unidade.id !== unidadeAnteriorId) {
     setUnidadeAnteriorId(unidade.id);
     setImagemAtiva(0);
   }
 
-  // ---------- Leitura em voz alta (Web Speech API, nativa do navegador) ----------
-  // Diferente do leitor de tela do sistema (NVDA/VoiceOver/TalkBack), que exige
-  // configuração prévia do usuário, isso funciona em um clique, direto no card.
   const [lendoEmVozAlta, setLendoEmVozAlta] = useState(false);
   const suportaVozAlta = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -41,7 +30,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
       return;
     }
 
-    window.speechSynthesis.cancel(); // garante que não haja fala anterior presa
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(montarTextoParaLeitura(unidade, tipoInfo));
     utterance.lang = 'pt-BR';
     utterance.rate = 0.95;
@@ -51,9 +40,6 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
     setLendoEmVozAlta(true);
   }
 
-  // Fecha com Esc, como os demais painéis do site, e interrompe a leitura em
-  // voz alta ao trocar de unidade ou fechar o card (senão a voz continua
-  // falando por cima do resto do site).
   useEffect(() => {
     if (!unidade) return;
     const handleKeyDown = (e) => {
@@ -147,8 +133,8 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
                 aria-label={lendoEmVozAlta ? `Parar leitura de ${unidade.nome}` : `Ouvir informações de ${unidade.nome}`}
                 title={lendoEmVozAlta ? 'Parar leitura' : 'Ouvir'}
                 className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors ${lendoEmVozAlta
-                    ? 'bg-blue-600 text-white animate-pulse'
-                    : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                  ? 'bg-blue-600 text-white animate-pulse'
+                  : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
                   }`}
               >
                 {lendoEmVozAlta ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -209,7 +195,6 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           )}
         </div>
 
-        {/* Canal de correção: cidadão pode sinalizar informação errada */}
         <ReportarCorrecaoModal unidade={unidade} />
       </div>
     </div>

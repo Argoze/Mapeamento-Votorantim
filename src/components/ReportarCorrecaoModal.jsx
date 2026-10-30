@@ -5,21 +5,18 @@ import { supabase } from '../lib/supabase';
 const CAMPOS = [
   { value: 'endereco', label: 'Endereço incorreto' },
   { value: 'telefone', label: 'Telefone incorreto ou inexistente' },
-  { value: 'horario',  label: 'Horário de funcionamento errado' },
-  { value: 'outro',    label: 'Outra informação errada' },
+  { value: 'horario', label: 'Horário de funcionamento errado' },
+  { value: 'outro', label: 'Outra informação errada' },
 ];
 
-// Formulário colapsável para o cidadão reportar uma informação incorreta.
-// Renderizado dentro do UnidadeDetalheModal, abaixo dos botões de ação.
 export default function ReportarCorrecaoModal({ unidade }) {
-  const [aberto, setAberto]       = useState(false);
-  const [campo, setCampo]         = useState('endereco');
+  const [aberto, setAberto] = useState(false);
+  const [campo, setCampo] = useState('endereco');
   const [descricao, setDescricao] = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [enviado, setEnviado]     = useState(false);
-  const [erro, setErro]           = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+  const [erro, setErro] = useState(null);
 
-  // Reseta o estado ao fechar o painel.
   const fechar = () => {
     setAberto(false);
     setDescricao('');
@@ -36,7 +33,7 @@ export default function ReportarCorrecaoModal({ unidade }) {
     setErro(null);
     try {
       const { error } = await supabase.from('correcoes').insert({
-        unidade_id:   unidade.id,
+        unidade_id: unidade.id,
         unidade_nome: unidade.nome,
         campo,
         descricao: descricao.trim(),

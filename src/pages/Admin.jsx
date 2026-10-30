@@ -16,7 +16,6 @@ import PublishPreviewModal from '../components/PublishPreviewModal';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
 
-// Tempo relativo simples (ex.: "há 3h", "há 2 dia(s)") para a atividade recente do dashboard.
 function tempoRelativo(dataStr) {
   const diff = Date.now() - new Date(dataStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -29,8 +28,6 @@ function tempoRelativo(dataStr) {
   return new Date(dataStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-// Deriva o tipo (UBS/ESF/UPA/Hospital) e o "resto" do nome a partir do nome salvo,
-// para pré-preencher corretamente o formulário ao editar uma unidade existente.
 function deriveTipoFromNome(nomeSalvo) {
   const nome = (nomeSalvo || '').trim();
   const lower = nome.toLowerCase();
@@ -170,8 +167,6 @@ export default function Admin() {
       .limit(200);
 
     if (error) {
-      // Provavelmente a tabela "auditoria" ainda não existe (atualização do
-      // setup_database.sql ainda não aplicada) — não é um erro grave, só falta configurar.
       setAuditoriaErro('A trilha de auditoria ainda não está disponível. Rode a atualização "trilha de auditoria" em setup_database.sql no SQL Editor do Supabase.');
       setAuditoria([]);
     } else {
@@ -449,7 +444,6 @@ export default function Admin() {
       }
     };
 
-    // Remove acentuações para evitar problemas com buscas exatas
     const normalizeText = (str) => str.normalize("NFD").replace(/[̀-ͯ]/g, "");
     const normalizedAddress = normalizeText(unidadeEndereco);
 
@@ -542,9 +536,6 @@ export default function Admin() {
     }
     setUnidadePublishLoading(true);
 
-    // A sub-classificação por prefixo no nome (UBS/ESF/Hospital/UPA) só se aplica
-    // à categoria Saúde. Para as demais categorias (Educação, Cultura, Governo,
-    // Lazer, Biblioteca) o nome é salvo como digitado.
     let finalNome = unidadeNome.trim();
     if (unidadeCategoria === 'Saúde') {
       if (unidadeTipo === 'ESF' && !finalNome.toLowerCase().startsWith('esf')) {
@@ -555,9 +546,9 @@ export default function Admin() {
         finalNome = `Hospital ${finalNome}`;
       } else if (unidadeTipo === 'UBS') {
         if (!finalNome.toLowerCase().startsWith('ubs') &&
-            !finalNome.toLowerCase().startsWith('esf') &&
-            !finalNome.toLowerCase().startsWith('upa') &&
-            !finalNome.toLowerCase().startsWith('hospital')) {
+          !finalNome.toLowerCase().startsWith('esf') &&
+          !finalNome.toLowerCase().startsWith('upa') &&
+          !finalNome.toLowerCase().startsWith('hospital')) {
           finalNome = `UBS ${finalNome}`;
         }
       }
@@ -856,11 +847,10 @@ export default function Admin() {
               <button
                 key={id}
                 onClick={() => setActivePanel(id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${
-                  activePanel === id
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${activePanel === id
                     ? 'bg-indigo-50 text-indigo-700 shadow-sm'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 <Icon size={18} />
                 <span className="flex-1">{label}</span>
@@ -893,11 +883,10 @@ export default function Admin() {
             <button
               key={id}
               onClick={() => setActivePanel(id)}
-              className={`flex-shrink-0 relative flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${
-                activePanel === id
+              className={`flex-shrink-0 relative flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${activePanel === id
                   ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
                   : 'border-transparent text-slate-500'
-              }`}
+                }`}
             >
               <Icon size={16} />
               <span className="hidden sm:inline">{label}</span>
@@ -1182,9 +1171,8 @@ export default function Admin() {
                         <button
                           type="button"
                           onClick={() => setShowDatePicker(true)}
-                          className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-left transition-all hover:border-indigo-400 hover:bg-indigo-50/50 flex items-center gap-2 ${
-                            dataEvento ? 'text-slate-800 font-medium' : 'text-slate-400'
-                          }`}
+                          className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-left transition-all hover:border-indigo-400 hover:bg-indigo-50/50 flex items-center gap-2 ${dataEvento ? 'text-slate-800 font-medium' : 'text-slate-400'
+                            }`}
                         >
                           <Calendar size={16} className="text-indigo-500 flex-shrink-0" />
                           <span className="truncate">{dataEvento || 'Clique para selecionar...'}</span>
@@ -1251,9 +1239,8 @@ export default function Admin() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                                  evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
-                                }`}>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+                                  }`}>
                                   {evento.tipo}
                                 </span>
                                 <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
@@ -1611,10 +1598,10 @@ export default function Admin() {
                       <p className="text-xs text-indigo-600 bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100/50 animate-slide-down">
                         💡 <strong>Salvo no mapa como:</strong> {
                           unidadeTipo === 'ESF' && !unidadeNome.toLowerCase().startsWith('esf') ? `ESF ${unidadeNome}` :
-                          unidadeTipo === 'UPA' && !unidadeNome.toLowerCase().startsWith('upa') ? `UPA ${unidadeNome}` :
-                          unidadeTipo === 'Hospital' && !unidadeNome.toLowerCase().startsWith('hospital') ? `Hospital ${unidadeNome}` :
-                          unidadeTipo === 'UBS' && !unidadeNome.toLowerCase().startsWith('ubs') && !unidadeNome.toLowerCase().startsWith('esf') && !unidadeNome.toLowerCase().startsWith('upa') && !unidadeNome.toLowerCase().startsWith('hospital') ? `UBS ${unidadeNome}` :
-                          unidadeNome
+                            unidadeTipo === 'UPA' && !unidadeNome.toLowerCase().startsWith('upa') ? `UPA ${unidadeNome}` :
+                              unidadeTipo === 'Hospital' && !unidadeNome.toLowerCase().startsWith('hospital') ? `Hospital ${unidadeNome}` :
+                                unidadeTipo === 'UBS' && !unidadeNome.toLowerCase().startsWith('ubs') && !unidadeNome.toLowerCase().startsWith('esf') && !unidadeNome.toLowerCase().startsWith('upa') && !unidadeNome.toLowerCase().startsWith('hospital') ? `UBS ${unidadeNome}` :
+                                  unidadeNome
                         }
                       </p>
                     )}
@@ -1799,9 +1786,8 @@ export default function Admin() {
                           return (
                             <div
                               key={linha.chave}
-                              className={`border rounded-xl p-3.5 transition-all ${
-                                !linha.valido ? 'bg-red-50/50 border-red-100' : selecionada ? 'bg-teal-50/50 border-teal-200' : 'bg-white border-slate-100'
-                              }`}
+                              className={`border rounded-xl p-3.5 transition-all ${!linha.valido ? 'bg-red-50/50 border-red-100' : selecionada ? 'bg-teal-50/50 border-teal-200' : 'bg-white border-slate-100'
+                                }`}
                             >
                               <div className="flex items-start gap-3">
                                 <button
@@ -1973,12 +1959,12 @@ export default function Admin() {
               const CAMPO_LABEL = {
                 endereco: 'Endereço',
                 telefone: 'Telefone',
-                horario:  'Horário de funcionamento',
-                outro:    'Outro',
+                horario: 'Horário de funcionamento',
+                outro: 'Outro',
               };
               const STATUS_ESTILO = {
-                pendente:   { label: 'Pendente',   cor: 'bg-amber-100 text-amber-700' },
-                aprovado:   { label: 'Aprovado',   cor: 'bg-emerald-100 text-emerald-700' },
+                pendente: { label: 'Pendente', cor: 'bg-amber-100 text-amber-700' },
+                aprovado: { label: 'Aprovado', cor: 'bg-emerald-100 text-emerald-700' },
                 descartado: { label: 'Descartado', cor: 'bg-slate-100 text-slate-500' },
               };
               const filtros = ['pendente', 'aprovado', 'descartado'];
@@ -2026,11 +2012,10 @@ export default function Admin() {
                               type="button"
                               onClick={() => setCorrecoesFiltro(f)}
                               aria-pressed={correcoesFiltro === f}
-                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                correcoesFiltro === f
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${correcoesFiltro === f
                                   ? 'bg-slate-800 text-white shadow-sm'
                                   : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                              }`}
+                                }`}
                             >
                               {STATUS_ESTILO[f].label} ({correcoes.filter(c => c.status === f).length})
                             </button>
@@ -2060,13 +2045,12 @@ export default function Admin() {
                               return (
                                 <div
                                   key={correcao.id}
-                                  className={`border rounded-xl p-4 transition-all ${
-                                    correcao.status === 'pendente'
+                                  className={`border rounded-xl p-4 transition-all ${correcao.status === 'pendente'
                                       ? 'border-amber-200 bg-amber-50/40'
                                       : correcao.status === 'aprovado'
                                         ? 'border-emerald-100 bg-emerald-50/30'
                                         : 'border-slate-100 bg-white opacity-70'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex items-start justify-between gap-3 mb-2.5">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -2198,11 +2182,10 @@ export default function Admin() {
                               type="button"
                               onClick={() => setAuditoriaFiltro(f)}
                               aria-pressed={auditoriaFiltro === f}
-                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                auditoriaFiltro === f
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${auditoriaFiltro === f
                                   ? 'bg-slate-800 text-white shadow-sm'
                                   : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                              }`}
+                                }`}
                             >
                               {f === 'Todos' ? `Todos (${auditoria.length})` : `${ENTIDADE_LABEL[f]} (${auditoria.filter(r => r.entidade === f).length})`}
                             </button>
