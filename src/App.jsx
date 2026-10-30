@@ -5,10 +5,13 @@ import Noticias from './pages/Noticias';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Saude from './pages/Saude';
+import OfflineBanner from './components/OfflineBanner';
 
 function App() {
   return (
     <BrowserRouter>
+      {/* Banner de status offline/online */}
+      <OfflineBanner />
       <Routes>
         <Route path="/" element={<Map />} />
         <Route path="/eventos" element={<Events />} />
