@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Navigation, Share2, Phone, Heart, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Navigation, Share2, Phone, Heart, MapPin, ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import ReportarCorrecaoModal from './ReportarCorrecaoModal';
 
 // Painel de detalhes de uma unidade/local, aberto ao clicar no marcador do mapa.
@@ -18,14 +18,53 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
     setImagemAtiva(0);
   }
 
-  // Fecha com Esc, como os demais painéis do site.
+  // ---------- Leitura em voz alta (Web Speech API, nativa do navegador) ----------
+  // Diferente do leitor de tela do sistema (NVDA/VoiceOver/TalkBack), que exige
+  // configuração prévia do usuário, isso funciona em um clique, direto no card.
+  const [lendoEmVozAlta, setLendoEmVozAlta] = useState(false);
+  const suportaVozAlta = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  function montarTextoParaLeitura(u, tipoInfoAtual) {
+    const partes = [u.nome];
+    if (tipoInfoAtual?.label) partes.push(tipoInfoAtual.label);
+    if (u.endereco) partes.push(`Endereço: ${u.endereco}`);
+    if (u.telefone) partes.push(`Telefone: ${u.telefone}`);
+    return partes.join('. ');
+  }
+
+  function alternarLeitura() {
+    if (!suportaVozAlta) return;
+
+    if (lendoEmVozAlta) {
+      window.speechSynthesis.cancel();
+      setLendoEmVozAlta(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel(); // garante que não haja fala anterior presa
+    const utterance = new SpeechSynthesisUtterance(montarTextoParaLeitura(unidade, tipoInfo));
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.95;
+    utterance.onend = () => setLendoEmVozAlta(false);
+    utterance.onerror = () => setLendoEmVozAlta(false);
+    window.speechSynthesis.speak(utterance);
+    setLendoEmVozAlta(true);
+  }
+
+  // Fecha com Esc, como os demais painéis do site, e interrompe a leitura em
+  // voz alta ao trocar de unidade ou fechar o card (senão a voz continua
+  // falando por cima do resto do site).
   useEffect(() => {
     if (!unidade) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      window.speechSynthesis?.cancel();
+      setLendoEmVozAlta(false);
+    };
   }, [unidade, onClose]);
 
   if (!unidade) return null;
@@ -99,16 +138,33 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           <span className={`text-xs font-bold px-3 py-1 rounded-full text-white ${badgeClass(tipoInfo.color)}`}>
             {tipoInfo.label}
           </span>
-          <button
-            type="button"
-            onClick={() => onToggleFavorito(unidade.id)}
-            className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
-            title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
-            aria-label={isFavorito ? `Remover ${unidade.nome} dos favoritos` : `Favoritar ${unidade.nome}`}
-            aria-pressed={isFavorito}
-          >
-            <Heart size={20} className={isFavorito ? 'fill-red-500 text-red-500' : ''} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {suportaVozAlta && (
+              <button
+                type="button"
+                onClick={alternarLeitura}
+                aria-pressed={lendoEmVozAlta}
+                aria-label={lendoEmVozAlta ? `Parar leitura de ${unidade.nome}` : `Ouvir informações de ${unidade.nome}`}
+                title={lendoEmVozAlta ? 'Parar leitura' : 'Ouvir'}
+                className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors ${lendoEmVozAlta
+                    ? 'bg-blue-600 text-white animate-pulse'
+                    : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+              >
+                {lendoEmVozAlta ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onToggleFavorito(unidade.id)}
+              className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+              title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
+              aria-label={isFavorito ? `Remover ${unidade.nome} dos favoritos` : `Favoritar ${unidade.nome}`}
+              aria-pressed={isFavorito}
+            >
+              <Heart size={20} className={isFavorito ? 'fill-red-500 text-red-500' : ''} />
+            </button>
+          </div>
         </div>
 
         <h2 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{unidade.nome}</h2>
