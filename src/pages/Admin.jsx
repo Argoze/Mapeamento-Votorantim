@@ -14,6 +14,7 @@ import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
+import LocationMapPicker from '../components/LocationMapPicker';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
 
@@ -105,6 +106,7 @@ export default function Admin() {
   const [deleteUnidadeConfirm, setDeleteUnidadeConfirm] = useState(null);
   const [deleteUnidadeLoading, setDeleteUnidadeLoading] = useState(null);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
+  const [mapaRecenterToken, setMapaRecenterToken] = useState(0);
 
   // Edição de unidade
   const [editingUnidadeId, setEditingUnidadeId] = useState(null);
@@ -500,6 +502,7 @@ export default function Admin() {
       const foundLng = parseFloat(data[0].lon);
       setUnidadeLat(foundLat.toString());
       setUnidadeLng(foundLng.toString());
+      setMapaRecenterToken(t => t + 1);
       setToast({ message: "Coordenadas localizadas com sucesso!", type: "success" });
     } else {
       setToast({
@@ -537,6 +540,7 @@ export default function Admin() {
     setUnidadeTelefone(unidade.telefone || '');
     setUnidadeImagens(unidade.imagens || []);
     setEditingUnidadeId(unidade.id);
+    setMapaRecenterToken(t => t + 1);
     setActivePanel('unidades');
   };
 
@@ -920,8 +924,8 @@ export default function Admin() {
                 key={id}
                 onClick={() => setActivePanel(id)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${activePanel === id
-                    ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                  ? 'bg-indigo-50 text-indigo-700 shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
                   }`}
               >
                 <Icon size={18} />
@@ -956,8 +960,8 @@ export default function Admin() {
               key={id}
               onClick={() => setActivePanel(id)}
               className={`flex-shrink-0 relative flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${activePanel === id
-                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                  : 'border-transparent text-slate-500'
+                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
+                : 'border-transparent text-slate-500'
                 }`}
             >
               <Icon size={16} />
@@ -1701,6 +1705,19 @@ export default function Admin() {
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Localização no mapa</label>
+                      <LocationMapPicker
+                        lat={unidadeLat}
+                        lng={unidadeLng}
+                        recenterToken={mapaRecenterToken}
+                        onChange={(novaLat, novaLng) => {
+                          setUnidadeLat(String(novaLat));
+                          setUnidadeLng(String(novaLng));
+                        }}
+                      />
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Latitude</label>
@@ -1726,6 +1743,9 @@ export default function Admin() {
                           placeholder="Ex: -47.4412"
                         />
                       </div>
+                      <p className="sm:col-span-2 text-xs text-slate-400">
+                        Esses campos mostram a coordenada marcada no mapa acima e também aceitam edição manual (ex: pra ajuste fino com valores de outra fonte).
+                      </p>
                     </div>
 
                     <div>
@@ -2243,8 +2263,8 @@ export default function Admin() {
                               onClick={() => setCorrecoesFiltro(f)}
                               aria-pressed={correcoesFiltro === f}
                               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${correcoesFiltro === f
-                                  ? 'bg-slate-800 text-white shadow-sm'
-                                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                ? 'bg-slate-800 text-white shadow-sm'
+                                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                 }`}
                             >
                               {STATUS_ESTILO[f].label} ({correcoes.filter(c => c.status === f).length})
@@ -2276,10 +2296,10 @@ export default function Admin() {
                                 <div
                                   key={correcao.id}
                                   className={`border rounded-xl p-4 transition-all ${correcao.status === 'pendente'
-                                      ? 'border-amber-200 bg-amber-50/40'
-                                      : correcao.status === 'aprovado'
-                                        ? 'border-emerald-100 bg-emerald-50/30'
-                                        : 'border-slate-100 bg-white opacity-70'
+                                    ? 'border-amber-200 bg-amber-50/40'
+                                    : correcao.status === 'aprovado'
+                                      ? 'border-emerald-100 bg-emerald-50/30'
+                                      : 'border-slate-100 bg-white opacity-70'
                                     }`}
                                 >
                                   <div className="flex items-start justify-between gap-3 mb-2.5">
@@ -2413,8 +2433,8 @@ export default function Admin() {
                               onClick={() => setAuditoriaFiltro(f)}
                               aria-pressed={auditoriaFiltro === f}
                               className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${auditoriaFiltro === f
-                                  ? 'bg-slate-800 text-white shadow-sm'
-                                  : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                ? 'bg-slate-800 text-white shadow-sm'
+                                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                 }`}
                             >
                               {f === 'Todos' ? `Todos (${auditoria.length})` : `${ENTIDADE_LABEL[f]} (${auditoria.filter(r => r.entidade === f).length})`}

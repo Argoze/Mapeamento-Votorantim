@@ -1,10 +1,5 @@
 import { X, Calendar, MapPin, ShieldAlert, Info, Star, Clock, Newspaper, Loader2, Check, ArrowLeft } from 'lucide-react';
 
-/**
- * Modal de pré-visualização antes de publicar/salvar um evento ou notícia.
- * Mostra o conteúdo como ele vai aparecer publicamente e só publica/atualiza
- * de fato quando o usuário confirma.
- */
 export default function PublishPreviewModal({ isOpen, onClose, onConfirm, type, data, loading, isEditing }) {
   if (!isOpen || !data) return null;
 
