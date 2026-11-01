@@ -7,7 +7,8 @@ import {
   MapPin, Loader2, Star, Eye, Building2,
   Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
-  History, MessageSquareWarning, CheckCheck, Ban, ChevronDown
+  History, MessageSquareWarning, CheckCheck, Ban, ChevronDown,
+  Phone, SkipForward, PartyPopper, ClipboardList, Camera
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -108,6 +109,16 @@ export default function Admin() {
   // Edição de unidade
   const [editingUnidadeId, setEditingUnidadeId] = useState(null);
 
+  // Completar cadastro em lote (telefone/foto) — fila focada, sem precisar
+  // abrir o formulário completo de edição para cada local. Pensada para
+  // preenchimento manual (nome + endereço já dão pra buscar no Google Maps),
+  // sem depender de nenhuma API paga.
+  const [completarUnidadeId, setCompletarUnidadeId] = useState(null);
+  const [completarTelefone, setCompletarTelefone] = useState('');
+  const [completarImagens, setCompletarImagens] = useState([]);
+  const [completarSalvando, setCompletarSalvando] = useState(false);
+  const [completarPuladas, setCompletarPuladas] = useState(() => new Set());
+
   // Importação em massa de unidades (CSV)
   const [importNomeArquivo, setImportNomeArquivo] = useState('');
   const [importLinhas, setImportLinhas] = useState([]);
@@ -156,6 +167,7 @@ export default function Admin() {
     fetchAuditoria();
     fetchCorrecoes();
   }, []);
+
 
   async function fetchAuditoria() {
     setAuditoriaLoading(true);
@@ -528,6 +540,50 @@ export default function Admin() {
     setActivePanel('unidades');
   };
 
+  // ---------- Completar cadastro em lote (telefone/foto) ----------
+
+  function buildGoogleMapsSearchUrl(unidade) {
+    const query = encodeURIComponent(`${unidade.nome}, ${unidade.endereco}, Votorantim - SP`);
+    return `https://www.google.com/maps/search/?api=1&query=${query}`;
+  }
+
+  function buildStreetViewUrl(unidade) {
+    return `https://www.google.com/maps?layer=c&cbll=${unidade.lat},${unidade.lng}`;
+  }
+
+  const handleSalvarCompletarCadastro = async () => {
+    if (!completarUnidadeId) return;
+    setCompletarSalvando(true);
+    try {
+      const unidadeAtual = adminUnidades.find(u => u.id === completarUnidadeId);
+      const payload = {
+        telefone: completarTelefone.trim() || null,
+        imagens: completarImagens.length > 0 ? completarImagens : null,
+      };
+      const { error } = await supabase.from('unidades').update(payload).eq('id', completarUnidadeId);
+      if (error) throw error;
+
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'editar', entidade: 'unidade',
+        entidadeId: completarUnidadeId, entidadeTitulo: unidadeAtual?.nome,
+      });
+
+      setToast({ message: 'Dados salvos! Indo para o próximo...', type: 'success' });
+      setCompletarUnidadeId(null); // libera o efeito para escolher o próximo pendente
+      await fetchUnidades();
+    } catch (err) {
+      setToast({ message: 'Erro ao salvar: ' + err.message, type: 'error' });
+    }
+    setCompletarSalvando(false);
+  };
+
+  const handlePularCompletarCadastro = () => {
+    if (!completarUnidadeId) return;
+    setCompletarPuladas(prev => new Set(prev).add(completarUnidadeId));
+    setCompletarUnidadeId(null);
+  };
+
   const handlePublishUnidade = async (e) => {
     e.preventDefault();
     if (!unidadeLat || !unidadeLng) {
@@ -753,6 +809,21 @@ export default function Admin() {
     return currentUser.email.substring(0, 2).toUpperCase();
   };
 
+  // Completar cadastro em lote: mantém sempre o primeiro local pendente
+  // (sem telefone ou sem foto, e não pulado nesta sessão) carregado no
+  // formulário da fila, ajustando o estado durante a renderização — mesmo
+  // padrão já usado em UnidadeDetalheModal.jsx para resetar ao trocar de item.
+  const unidadePendenteCompletar = adminUnidades.find(u =>
+    (!u.telefone || !u.imagens || u.imagens.length === 0) && !completarPuladas.has(u.id)
+  );
+  if (unidadePendenteCompletar && unidadePendenteCompletar.id !== completarUnidadeId) {
+    setCompletarUnidadeId(unidadePendenteCompletar.id);
+    setCompletarTelefone(unidadePendenteCompletar.telefone || '');
+    setCompletarImagens(unidadePendenteCompletar.imagens || []);
+  } else if (!unidadePendenteCompletar && completarUnidadeId !== null) {
+    setCompletarUnidadeId(null);
+  }
+
   if (!currentUser) return null;
 
   const sidebarLinks = [
@@ -764,6 +835,7 @@ export default function Admin() {
     { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : 'Adicionar Unidade', icon: editingUnidadeId ? Pencil : Building2 },
     { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
     { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
+    { id: 'completar_cadastro', label: 'Completar Cadastro', icon: ClipboardList },
     {
       id: 'correcoes',
       label: 'Correções do Cidadão',
@@ -940,7 +1012,7 @@ export default function Admin() {
                   faltando: unidadesSemTelefone.length,
                   total: adminUnidades.length,
                   percentualCompleto: adminUnidades.length ? Math.round(((adminUnidades.length - unidadesSemTelefone.length) / totalUnidades) * 100) : 100,
-                  painel: 'gerenciar_unidades',
+                  painel: 'completar_cadastro',
                 },
                 {
                   chave: 'imagem-unidade',
@@ -950,7 +1022,7 @@ export default function Admin() {
                   faltando: unidadesSemImagem.length,
                   total: adminUnidades.length,
                   percentualCompleto: adminUnidades.length ? Math.round(((adminUnidades.length - unidadesSemImagem.length) / totalUnidades) * 100) : 100,
-                  painel: 'gerenciar_unidades',
+                  painel: 'completar_cadastro',
                 },
                 {
                   chave: 'conteudo-noticia',
@@ -1953,6 +2025,164 @@ export default function Admin() {
                 </div>
               </div>
             )}
+
+            {/* Panel: Completar cadastro em lote (telefone/foto) */}
+            {activePanel === 'completar_cadastro' && (() => {
+              const totalPendentesInicial = adminUnidades.filter(u => !u.telefone || !u.imagens || u.imagens.length === 0).length;
+              const restantes = adminUnidades.filter(u =>
+                (!u.telefone || !u.imagens || u.imagens.length === 0) && !completarPuladas.has(u.id)
+              ).length;
+              const concluidos = totalPendentesInicial - restantes;
+
+              return (
+                <div className="animate-fade-in">
+                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
+                      <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                        <ClipboardList className="text-amber-600" size={20} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-bold text-slate-800">Completar cadastro</h2>
+                        <p className="text-sm text-slate-500">Preencha telefone e foto um local de cada vez, sem precisar abrir o formulário completo.</p>
+                      </div>
+                    </div>
+
+                    {totalPendentesInicial === 0 ? (
+                      <div className="text-center py-14">
+                        <PartyPopper size={40} className="text-emerald-500 mx-auto mb-3" />
+                        <p className="text-slate-700 font-bold">Tudo certo por aqui!</p>
+                        <p className="text-sm text-slate-500 mt-1">Todas as unidades já têm telefone e pelo menos uma foto cadastrados.</p>
+                      </div>
+                    ) : !unidadePendenteCompletar ? (
+                      <div className="text-center py-14">
+                        <PartyPopper size={40} className="text-emerald-500 mx-auto mb-3" />
+                        <p className="text-slate-700 font-bold">Você completou todos os pendentes desta sessão!</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                          {completarPuladas.size > 0
+                            ? `Ainda restam ${completarPuladas.size} local(is) que você pulou — recarregue a página para revê-los.`
+                            : 'Nenhuma unidade pendente no momento.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="pt-5">
+                        {/* Barra de progresso */}
+                        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
+                          <span>{concluidos} de {totalPendentesInicial} concluídos nesta sessão</span>
+                          <span>{Math.round((concluidos / totalPendentesInicial) * 100)}%</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-6">
+                          <div
+                            className="h-full bg-amber-500 rounded-full transition-all"
+                            style={{ width: `${(concluidos / totalPendentesInicial) * 100}%` }}
+                          />
+                        </div>
+
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
+                          <div className="flex items-start gap-3">
+                            {unidadePendenteCompletar.imagens && unidadePendenteCompletar.imagens.length > 0 ? (
+                              <img src={unidadePendenteCompletar.imagens[0]} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                            ) : (
+                              <div className="w-16 h-16 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 flex-shrink-0">
+                                <Building2 size={26} />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <h3 className="font-bold text-slate-800">{unidadePendenteCompletar.nome}</h3>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 flex-shrink-0">
+                                  {unidadePendenteCompletar.categoria || 'Saúde'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-500">{unidadePendenteCompletar.endereco}</p>
+                              <div className="flex flex-wrap gap-2 mt-2.5">
+                                <a
+                                  href={buildGoogleMapsSearchUrl(unidadePendenteCompletar)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+                                >
+                                  <ExternalLink size={13} />
+                                  Buscar no Google Maps
+                                </a>
+                                <a
+                                  href={buildStreetViewUrl(unidadePendenteCompletar)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+                                >
+                                  <Camera size={13} />
+                                  Ver no Street View
+                                </a>
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-2">
+                                Dica: no Google Maps, copie o telefone do perfil do local; se não tiver foto cadastrada, tire um print do Street View e envie aqui embaixo.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                              <Phone size={14} /> Telefone
+                            </label>
+                            <input
+                              type="tel"
+                              value={completarTelefone}
+                              onChange={e => setCompletarTelefone(e.target.value)}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all"
+                              placeholder="Ex: (15) 3347-0000"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                              <Camera size={14} /> Foto do local
+                            </label>
+                            <ImageUpload
+                              images={completarImagens}
+                              onImagesChange={setCompletarImagens}
+                              maxImages={10}
+                              folder="unidades"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6 pt-5 border-t border-slate-100">
+                          <button
+                            type="button"
+                            onClick={handlePularCompletarCadastro}
+                            disabled={completarSalvando}
+                            className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60"
+                          >
+                            <SkipForward size={16} />
+                            Pular por agora
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSalvarCompletarCadastro}
+                            disabled={completarSalvando}
+                            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60"
+                          >
+                            {completarSalvando ? (
+                              <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Salvando...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCheck size={18} />
+                                Salvar e avançar
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Panel: Correções do Cidadão */}
             {activePanel === 'correcoes' && (() => {

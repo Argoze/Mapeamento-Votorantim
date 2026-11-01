@@ -126,7 +126,7 @@ function badgeClass(color) {
 // ---------- Fundo do mapa (tiles) ----------
 const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY;
 const TILE_URL = CARTO_API_KEY
-  ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?api_key=${CARTO_API_KEY}`
+  ? `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`
   : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const TILE_ATTRIBUTION = CARTO_API_KEY
