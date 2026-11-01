@@ -18,6 +18,7 @@ import LocationMapPicker from '../components/LocationMapPicker';
 import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
+import { csvUnidades, csvEventos, csvNoticias, csvCorrecoes, csvAuditoria, baixarCsv, nomeArquivoComData } from '../lib/exportarDados';
 
 function tempoRelativo(dataStr) {
   const diff = Date.now() - new Date(dataStr).getTime();
@@ -764,6 +765,28 @@ export default function Admin() {
     URL.revokeObjectURL(url);
   };
 
+  // ---------- Exportação em massa (CSV) ----------
+  // Caminho inverso da importação em massa: gera um CSV de cada tabela
+  // principal, pra relatório pra Prefeitura ou backup manual rápido.
+  const EXPORT_CONFIG = {
+    unidades: { label: 'Unidades', dados: adminUnidades, gerar: csvUnidades },
+    eventos: { label: 'Eventos e campanhas', dados: eventos, gerar: csvEventos },
+    noticias: { label: 'Notícias', dados: noticias, gerar: csvNoticias },
+    correcoes: { label: 'Correções do cidadão', dados: correcoes, gerar: csvCorrecoes },
+    auditoria: { label: 'Trilha de auditoria', dados: auditoria, gerar: csvAuditoria },
+  };
+
+  const handleExportarCsv = (chave) => {
+    const config = EXPORT_CONFIG[chave];
+    if (!config) return;
+    if (!config.dados || config.dados.length === 0) {
+      setToast({ message: `Não há dados de "${config.label}" para exportar ainda.`, type: 'error' });
+      return;
+    }
+    baixarCsv(nomeArquivoComData(chave), config.gerar(config.dados));
+    setToast({ message: `${config.label}: CSV com ${config.dados.length} registro(s) baixado.`, type: 'success' });
+  };
+
   const handleConfirmarImportacao = async () => {
     const selecionadas = importLinhas.filter(l => l.valido && importSelecionadas.has(l.chave));
     if (selecionadas.length === 0) {
@@ -872,6 +895,7 @@ export default function Admin() {
     },
     { id: 'usuarios', label: 'Cadastrar Usuário', icon: Users },
     { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
+    { id: 'exportar', label: 'Exportar Dados', icon: Download },
   ];
 
   return (
@@ -2583,6 +2607,51 @@ export default function Admin() {
                 </div>
               );
             })()}
+
+            {/* Panel: Exportar Dados */}
+            {activePanel === 'exportar' && (
+              <div className="animate-fade-in">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center">
+                      <Download className="text-teal-600" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Exportar Dados</h2>
+                      <p className="text-sm text-slate-500">Baixe qualquer tabela como CSV — abre direto no Excel/Google Sheets. Útil pra relatório pra Prefeitura ou backup manual rápido.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {Object.entries(EXPORT_CONFIG).map(([chave, config]) => (
+                      <div key={chave} className="flex items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-9 w-9 bg-white border border-slate-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileSpreadsheet size={16} className="text-teal-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-slate-800">{config.label}</p>
+                            <p className="text-xs text-slate-400">{config.dados.length} registro(s)</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleExportarCsv(chave)}
+                          disabled={config.dados.length === 0}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600 text-white text-xs font-bold transition-colors"
+                        >
+                          <Download size={14} /> Baixar CSV
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-slate-400 mt-5">
+                    O CSV de "Unidades" usa as mesmas colunas reconhecidas pela importação em massa (Nome, Endereço, Categoria, Latitude, Longitude, Telefone) — pode editar numa planilha e reimportar depois, se precisar.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
