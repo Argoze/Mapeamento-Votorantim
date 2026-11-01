@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase, checkAuth, logout, registrarAuditoria } from '../lib/supabase';
 import {
   Megaphone, Stethoscope, LogOut, Calendar, Trash2, Pencil, XCircle,
-  Plus, ExternalLink, MapPin, Loader2, Newspaper, Star, Eye
+  Plus, ExternalLink, MapPin, Loader2, Newspaper, Star, Eye, Timer
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
+import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
 
 export default function Saude() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -20,6 +21,8 @@ export default function Saude() {
   const [eventoImagens, setEventoImagens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [agendarPublicacao, setAgendarPublicacao] = useState(false);
+  const [publicarEm, setPublicarEm] = useState('');
 
   // Edição de evento
   const [editingEventoId, setEditingEventoId] = useState(null);
@@ -118,6 +121,7 @@ export default function Saude() {
         local_evento: local,
         tipo: tipo,
         imagens: eventoImagens.length > 0 ? eventoImagens : null,
+        publicar_em: agendarPublicacao && publicarEm ? new Date(publicarEm).toISOString() : null,
       };
 
       let error, data;
@@ -135,7 +139,15 @@ export default function Saude() {
         entidadeId: editingEventoId || data?.id, entidadeTitulo: payload.titulo,
       });
 
-      setToast({ message: editingEventoId ? "Evento atualizado com sucesso!" : "Campanha publicada com sucesso!", type: "success" });
+      const foiAgendado = !!payload.publicar_em;
+      setToast({
+        message: editingEventoId
+          ? "Evento atualizado com sucesso!"
+          : foiAgendado
+            ? `Campanha agendada! Vai aparecer sozinha no portal em ${new Date(payload.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+            : "Campanha publicada com sucesso!",
+        type: "success",
+      });
       resetEventoForm();
       setShowEventoPreview(false);
       fetchMeusEventos();
@@ -149,6 +161,7 @@ export default function Saude() {
 
   const resetEventoForm = () => {
     setTitulo(''); setDesc(''); setDataEvento(''); setLocal(''); setTipo('Informativo'); setEventoImagens([]);
+    setAgendarPublicacao(false); setPublicarEm('');
     setEditingEventoId(null);
   };
 
@@ -159,6 +172,13 @@ export default function Saude() {
     setLocal(evento.local_evento);
     setTipo(evento.tipo);
     setEventoImagens(evento.imagens || []);
+    if (evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now()) {
+      setAgendarPublicacao(true);
+      setPublicarEm(new Date(evento.publicar_em).toISOString().slice(0, 16));
+    } else {
+      setAgendarPublicacao(false);
+      setPublicarEm('');
+    }
     setEditingEventoId(evento.id);
     setActiveTab('publicar');
   };
@@ -303,7 +323,7 @@ export default function Saude() {
         type="evento"
         loading={loading}
         isEditing={!!editingEventoId}
-        data={{ titulo, descricao: desc, data_evento: dataEvento, local_evento: local, tipo, imagens: eventoImagens }}
+        data={{ titulo, descricao: desc, data_evento: dataEvento, local_evento: local, tipo, imagens: eventoImagens, publicarEm: agendarPublicacao ? publicarEm : null }}
       />
       <PublishPreviewModal
         isOpen={showNoticiaPreview}
@@ -355,11 +375,10 @@ export default function Saude() {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === id
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
+              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === id
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
             >
               <Icon size={16} />
               {label}
@@ -395,6 +414,19 @@ export default function Saude() {
                 </div>
 
                 <form onSubmit={openEventoPreview} className="space-y-4">
+                  <CampanhaTemplateBar
+                    formData={{ titulo, descricao: desc, local_evento: local, tipo, imagens: eventoImagens }}
+                    onAplicarTemplate={(t) => {
+                      setTitulo(t.titulo || '');
+                      setDesc(t.descricao || '');
+                      setLocal(t.local_evento || '');
+                      setTipo(t.tipo || 'Informativo');
+                      setEventoImagens(t.imagens || []);
+                      setToast({ message: `Modelo "${t.nome}" aplicado — confira data/local e publique.`, type: 'info' });
+                    }}
+                    currentUser={currentUser}
+                    onToast={setToast}
+                  />
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título</label>
                     <input type="text" required value={titulo} onChange={e => setTitulo(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Ex: Campanha de Vacinação contra Gripe" />
@@ -409,9 +441,8 @@ export default function Saude() {
                       <button
                         type="button"
                         onClick={() => setShowDatePicker(true)}
-                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 flex items-center gap-2 ${
-                          dataEvento ? 'text-slate-800 font-medium' : 'text-slate-400'
-                        }`}
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-left transition-all hover:border-blue-400 hover:bg-blue-50/50 flex items-center gap-2 ${dataEvento ? 'text-slate-800 font-medium' : 'text-slate-400'
+                          }`}
                       >
                         <Calendar size={16} className="text-blue-500 flex-shrink-0" />
                         <span className="truncate">{dataEvento || 'Clique para selecionar...'}</span>
@@ -430,6 +461,44 @@ export default function Saude() {
                     </select>
                   </div>
 
+                  {/* Agendamento de publicação */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3.5">
+                    <div
+                      className="flex items-center justify-between gap-3 cursor-pointer"
+                      onClick={() => {
+                        setAgendarPublicacao(v => {
+                          const next = !v;
+                          if (!next) setPublicarEm('');
+                          return next;
+                        });
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Timer size={18} className="text-blue-600 flex-shrink-0" />
+                        <div>
+                          <span className="text-sm font-semibold text-blue-800">Agendar publicação</span>
+                          <p className="text-xs text-blue-600">Em vez de publicar agora, a campanha fica oculta do portal até a data/hora escolhida.</p>
+                        </div>
+                      </div>
+                      <div className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${agendarPublicacao ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                        <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-all ${agendarPublicacao ? 'left-5.5 translate-x-0.5' : 'left-0.5'}`} />
+                      </div>
+                    </div>
+                    {agendarPublicacao && (
+                      <div className="mt-3 animate-fade-in">
+                        <label className="block text-xs font-semibold text-blue-700 mb-1.5">Publicar automaticamente em</label>
+                        <input
+                          type="datetime-local"
+                          required={agendarPublicacao}
+                          min={new Date().toISOString().slice(0, 16)}
+                          value={publicarEm}
+                          onChange={e => setPublicarEm(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm font-medium text-slate-700"
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   {/* Image Upload */}
                   <ImageUpload
                     images={eventoImagens}
@@ -438,9 +507,9 @@ export default function Saude() {
                     folder="eventos"
                   />
 
-                  <button type="submit" disabled={loading || !dataEvento} className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                    {editingEventoId ? <Pencil size={18} /> : <Plus size={18} />}
-                    {editingEventoId ? 'Revisar alterações' : 'Revisar e publicar'}
+                  <button type="submit" disabled={loading || !dataEvento || (agendarPublicacao && !publicarEm)} className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                    {editingEventoId ? <Pencil size={18} /> : agendarPublicacao ? <Timer size={18} /> : <Plus size={18} />}
+                    {editingEventoId ? 'Revisar alterações' : agendarPublicacao ? 'Revisar e agendar' : 'Revisar e publicar'}
                   </button>
                 </form>
               </div>
@@ -479,11 +548,15 @@ export default function Saude() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                                evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
-                              }`}>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+                                }`}>
                                 {evento.tipo}
                               </span>
+                              {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                                  <Timer size={10} /> Agendado
+                                </span>
+                              )}
                               <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
                             </div>
                             <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
@@ -492,6 +565,11 @@ export default function Saude() {
                               <span className="flex items-center gap-1"><MapPin size={11} /> {evento.local_evento}</span>
                               {evento.imagens && evento.imagens.length > 0 && (
                                 <span className="text-purple-500 font-bold">📷 {evento.imagens.length} img</span>
+                              )}
+                              {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                                <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+                                  <Timer size={11} /> publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </span>
                               )}
                             </div>
                           </div>

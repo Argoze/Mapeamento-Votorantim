@@ -57,7 +57,14 @@ export default function Events() {
       if (error) {
         console.error('Erro ao carregar eventos', error);
       } else {
-        setEventos(data || []);
+        // Campanhas agendadas pra uma data futura (publicar_em) ainda não
+        // devem aparecer pro cidadão — somem sozinhas da lista até a data
+        // chegar, sem precisar de ninguém publicando manualmente no dia certo.
+        const agora = Date.now();
+        const visiveis = (data || []).filter(
+          (e) => !e.publicar_em || new Date(e.publicar_em).getTime() <= agora
+        );
+        setEventos(visiveis);
       }
       setLoading(false);
     }
@@ -165,14 +172,14 @@ export default function Events() {
                 onClick={() => setFiltro(f)}
                 aria-pressed={isSelected}
                 className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${isSelected
-                    ? f === 'Urgente'
-                      ? 'bg-red-500 text-white shadow-md'
-                      : f === 'Informativo'
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : f === 'Favoritos'
-                          ? 'bg-rose-500 text-white shadow-md'
-                          : 'bg-slate-800 text-white shadow-md'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? f === 'Urgente'
+                    ? 'bg-red-500 text-white shadow-md'
+                    : f === 'Informativo'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : f === 'Favoritos'
+                        ? 'bg-rose-500 text-white shadow-md'
+                        : 'bg-slate-800 text-white shadow-md'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                   }`}
               >
                 {f === 'Favoritos' && (
@@ -341,8 +348,8 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             aria-pressed={isFavorito}
             title={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
             className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${hasImages
-                ? 'bg-white/90 hover:bg-white text-slate-600 shadow-sm'
-                : 'mr-2 mt-2 bg-slate-100 hover:bg-slate-200 text-slate-600'
+              ? 'bg-white/90 hover:bg-white text-slate-600 shadow-sm'
+              : 'mr-2 mt-2 bg-slate-100 hover:bg-slate-200 text-slate-600'
               }`}
           >
             <Heart
@@ -423,8 +430,8 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             aria-pressed={isFavorito}
             aria-label={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
             className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs transition-colors ${isFavorito
-                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             title={isFavorito ? 'Campanha salva nos favoritos' : 'Salvar nos favoritos'}
           >

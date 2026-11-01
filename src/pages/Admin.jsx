@@ -8,13 +8,14 @@ import {
   Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
   History, MessageSquareWarning, CheckCheck, Ban, ChevronDown,
-  Phone, SkipForward, PartyPopper, ClipboardList, Camera
+  Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
 import LocationMapPicker from '../components/LocationMapPicker';
+import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
 
@@ -57,6 +58,12 @@ export default function Admin() {
   const [eventoImagens, setEventoImagens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Agendamento de publicação: em vez de ir ao ar imediatamente, a campanha
+  // só aparece no portal público a partir da data/hora escolhida aqui — ver
+  // agendamento_templates_setup.sql (coluna eventos.publicar_em).
+  const [agendarPublicacao, setAgendarPublicacao] = useState(false);
+  const [publicarEm, setPublicarEm] = useState('');
 
   // Edição de evento
   const [editingEventoId, setEditingEventoId] = useState(null);
@@ -285,6 +292,7 @@ export default function Admin() {
         local_evento: local,
         tipo: tipo,
         imagens: eventoImagens.length > 0 ? eventoImagens : null,
+        publicar_em: agendarPublicacao && publicarEm ? new Date(publicarEm).toISOString() : null,
       };
 
       let error, data;
@@ -302,7 +310,15 @@ export default function Admin() {
         entidadeId: editingEventoId || data?.id, entidadeTitulo: payload.titulo,
       });
 
-      setToast({ message: editingEventoId ? "Evento atualizado com sucesso!" : "Campanha publicada com sucesso!", type: "success" });
+      const foiAgendado = !!payload.publicar_em;
+      setToast({
+        message: editingEventoId
+          ? "Evento atualizado com sucesso!"
+          : foiAgendado
+            ? `Campanha agendada! Vai aparecer sozinha no portal em ${new Date(payload.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+            : "Campanha publicada com sucesso!",
+        type: "success",
+      });
       resetEventoForm();
       setShowEventoPreview(false);
       fetchEventos();
@@ -317,6 +333,7 @@ export default function Admin() {
 
   const resetEventoForm = () => {
     setTitulo(''); setDesc(''); setDataEvento(''); setLocal(''); setTipo('Informativo'); setEventoImagens([]);
+    setAgendarPublicacao(false); setPublicarEm('');
     setEditingEventoId(null);
   };
 
@@ -327,6 +344,13 @@ export default function Admin() {
     setLocal(evento.local_evento);
     setTipo(evento.tipo);
     setEventoImagens(evento.imagens || []);
+    if (evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now()) {
+      setAgendarPublicacao(true);
+      setPublicarEm(new Date(evento.publicar_em).toISOString().slice(0, 16));
+    } else {
+      setAgendarPublicacao(false);
+      setPublicarEm('');
+    }
     setEditingEventoId(evento.id);
     setActivePanel('eventos');
   };
@@ -870,7 +894,7 @@ export default function Admin() {
         type="evento"
         loading={loading}
         isEditing={!!editingEventoId}
-        data={{ titulo, descricao: desc, data_evento: dataEvento, local_evento: local, tipo, imagens: eventoImagens }}
+        data={{ titulo, descricao: desc, data_evento: dataEvento, local_evento: local, tipo, imagens: eventoImagens, publicarEm: agendarPublicacao ? publicarEm : null }}
       />
       <PublishPreviewModal
         isOpen={showNoticiaPreview}
@@ -1233,6 +1257,19 @@ export default function Admin() {
                   </div>
 
                   <form onSubmit={openEventoPreview} className="space-y-4">
+                    <CampanhaTemplateBar
+                      formData={{ titulo, descricao: desc, local_evento: local, tipo, imagens: eventoImagens }}
+                      onAplicarTemplate={(t) => {
+                        setTitulo(t.titulo || '');
+                        setDesc(t.descricao || '');
+                        setLocal(t.local_evento || '');
+                        setTipo(t.tipo || 'Informativo');
+                        setEventoImagens(t.imagens || []);
+                        setToast({ message: `Modelo "${t.nome}" aplicado — confira data/local e publique.`, type: 'info' });
+                      }}
+                      currentUser={currentUser}
+                      onToast={setToast}
+                    />
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título</label>
                       <input type="text" required value={titulo} onChange={e => setTitulo(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Ex: Campanha de Vacinação contra Gripe" />
@@ -1267,6 +1304,44 @@ export default function Admin() {
                       </select>
                     </div>
 
+                    {/* Agendamento de publicação */}
+                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3.5">
+                      <div
+                        className="flex items-center justify-between gap-3 cursor-pointer"
+                        onClick={() => {
+                          setAgendarPublicacao(v => {
+                            const next = !v;
+                            if (!next) setPublicarEm('');
+                            return next;
+                          });
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Timer size={18} className="text-indigo-600 flex-shrink-0" />
+                          <div>
+                            <span className="text-sm font-semibold text-indigo-800">Agendar publicação</span>
+                            <p className="text-xs text-indigo-600">Em vez de publicar agora, a campanha fica oculta do portal até a data/hora escolhida.</p>
+                          </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${agendarPublicacao ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                          <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-all ${agendarPublicacao ? 'left-5.5 translate-x-0.5' : 'left-0.5'}`} />
+                        </div>
+                      </div>
+                      {agendarPublicacao && (
+                        <div className="mt-3 animate-fade-in">
+                          <label className="block text-xs font-semibold text-indigo-700 mb-1.5">Publicar automaticamente em</label>
+                          <input
+                            type="datetime-local"
+                            required={agendarPublicacao}
+                            min={new Date().toISOString().slice(0, 16)}
+                            value={publicarEm}
+                            onChange={e => setPublicarEm(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-white border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none text-sm font-medium text-slate-700"
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     {/* Image Upload */}
                     <ImageUpload
                       images={eventoImagens}
@@ -1275,9 +1350,9 @@ export default function Admin() {
                       folder="eventos"
                     />
 
-                    <button type="submit" disabled={loading || !dataEvento} className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                      {editingEventoId ? <Pencil size={18} /> : <Plus size={18} />}
-                      {editingEventoId ? 'Revisar alterações' : 'Revisar e publicar'}
+                    <button type="submit" disabled={loading || !dataEvento || (agendarPublicacao && !publicarEm)} className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                      {editingEventoId ? <Pencil size={18} /> : agendarPublicacao ? <Timer size={18} /> : <Plus size={18} />}
+                      {editingEventoId ? 'Revisar alterações' : agendarPublicacao ? 'Revisar e agendar' : 'Revisar e publicar'}
                     </button>
                   </form>
                 </div>
@@ -1319,6 +1394,11 @@ export default function Admin() {
                                   }`}>
                                   {evento.tipo}
                                 </span>
+                                {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                                    <Timer size={10} /> Agendado
+                                  </span>
+                                )}
                                 <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
                               </div>
                               <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
@@ -1327,6 +1407,11 @@ export default function Admin() {
                                 <span className="flex items-center gap-1"><MapPin size={11} /> {evento.local_evento}</span>
                                 {evento.imagens && evento.imagens.length > 0 && (
                                   <span className="text-purple-500 font-bold">📷 {evento.imagens.length} img</span>
+                                )}
+                                {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                                  <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+                                    <Timer size={11} /> publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </span>
                                 )}
                               </div>
                             </div>

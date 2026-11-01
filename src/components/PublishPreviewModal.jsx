@@ -1,4 +1,4 @@
-import { X, Calendar, MapPin, ShieldAlert, Info, Star, Clock, Newspaper, Loader2, Check, ArrowLeft } from 'lucide-react';
+import { X, Calendar, MapPin, ShieldAlert, Info, Star, Clock, Newspaper, Loader2, Check, ArrowLeft, Timer } from 'lucide-react';
 
 export default function PublishPreviewModal({ isOpen, onClose, onConfirm, type, data, loading, isEditing }) {
   if (!isOpen || !data) return null;
@@ -56,8 +56,15 @@ export default function PublishPreviewModal({ isOpen, onClose, onConfirm, type, 
 
 function EventoPreview({ data }) {
   const hasImages = data.imagens && data.imagens.length > 0;
+  const agendado = !!data.publicarEm;
   return (
     <div className="glass-panel rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+      {agendado && (
+        <div className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 flex items-center gap-2">
+          <Timer size={14} />
+          Agendado — só vai aparecer no portal público em {new Date(data.publicarEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </div>
+      )}
       {hasImages && (
         <div className="relative h-40 overflow-hidden">
           <img src={data.imagens[0]} alt={data.titulo} className="w-full h-full object-cover" />
