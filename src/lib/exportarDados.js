@@ -23,7 +23,6 @@ export function gerarCsv(linhas, colunas) {
             .map((c) => escaparCelula(typeof c.valor === 'function' ? c.valor(linha) : linha[c.campo]))
             .join(',')
     );
-
     return '﻿' + [cabecalho, ...corpo].join('\r\n');
 }
 
@@ -72,6 +71,17 @@ export function csvCorrecoes(correcoes) {
         { titulo: 'Status', campo: 'status' },
         { titulo: 'Criado em', valor: (c) => formatarData(c.criado_em) },
         { titulo: 'Moderado em', valor: (c) => formatarData(c.moderado_em) },
+    ]);
+}
+
+export function csvMetricas(metricas) {
+    return gerarCsv(metricas, [
+        { titulo: 'Tipo', campo: 'tipo' },
+        { titulo: 'Unidade', campo: 'unidade_nome' },
+        { titulo: 'Categoria', campo: 'categoria' },
+        { titulo: 'Pagina', campo: 'pagina' },
+        { titulo: 'Bairro', campo: 'bairro' },
+        { titulo: 'Quando', valor: (m) => formatarData(m.criado_em) },
     ]);
 }
 

@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import { onActivateKey } from '../lib/a11y';
+import { registrarPaginaVista } from '../lib/metricas';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -33,9 +34,9 @@ function NoticiaCardSkeleton() {
 function NoticiaImageGallery({ noticia }) {
   const [currentImg, setCurrentImg] = useState(0);
   const hasImages = noticia.imagens && noticia.imagens.length > 0;
-  
+
   if (!hasImages && !noticia.imagem_url) return null;
-  
+
   if (!hasImages || noticia.imagens.length === 1) {
     return (
       <img
@@ -113,13 +114,14 @@ export default function Noticias() {
       setLoading(false);
     }
     fetchNoticias();
+    registrarPaginaVista('/noticias');
   }, []);
 
   const noticiasFiltradas = busca
     ? noticias.filter(n =>
-        n.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-        n.resumo.toLowerCase().includes(busca.toLowerCase())
-      )
+      n.titulo.toLowerCase().includes(busca.toLowerCase()) ||
+      n.resumo.toLowerCase().includes(busca.toLowerCase())
+    )
     : noticias;
 
   const destaque = noticiasFiltradas.find(n => n.destaque);

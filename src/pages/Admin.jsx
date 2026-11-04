@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, checkAuth, logout, createUserWithProfile, registrarAuditoria } from '../lib/supabase';
 import {
@@ -8,7 +8,8 @@ import {
   Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
   History, MessageSquareWarning, CheckCheck, Ban, ChevronDown,
-  Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer
+  Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer,
+  TrendingUp, BarChart3, MapPinned, Flame, Filter
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -18,7 +19,7 @@ import LocationMapPicker from '../components/LocationMapPicker';
 import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
-import { csvUnidades, csvEventos, csvNoticias, csvCorrecoes, csvAuditoria, baixarCsv, nomeArquivoComData } from '../lib/exportarDados';
+import { csvUnidades, csvEventos, csvNoticias, csvCorrecoes, csvAuditoria, csvMetricas, baixarCsv, nomeArquivoComData } from '../lib/exportarDados';
 
 function tempoRelativo(dataStr) {
   const diff = Date.now() - new Date(dataStr).getTime();
@@ -149,6 +150,12 @@ export default function Admin() {
   const [correcoesFiltro, setCorrecoesFiltro] = useState('pendente');
   const [moderandoId, setModerandoId] = useState(null);
 
+  // Analytics de uso real do portal público (ver analytics_setup.sql e
+  // src/lib/metricas.js) — alimenta o painel "Analytics de Uso".
+  const [metricas, setMetricas] = useState([]);
+  const [metricasLoading, setMetricasLoading] = useState(true);
+  const [metricasErro, setMetricasErro] = useState(null);
+
   // Toast
   const [toast, setToast] = useState(null);
 
@@ -176,6 +183,7 @@ export default function Admin() {
     fetchUnidades();
     fetchAuditoria();
     fetchCorrecoes();
+    fetchMetricas();
   }, []);
 
 
@@ -213,6 +221,24 @@ export default function Admin() {
       setCorrecoes(data || []);
     }
     setCorrecoesLoading(false);
+  }
+
+  async function fetchMetricas() {
+    setMetricasLoading(true);
+    setMetricasErro(null);
+    const { data, error } = await supabase
+      .from('metricas_uso')
+      .select('*')
+      .order('criado_em', { ascending: false })
+      .limit(5000);
+
+    if (error) {
+      setMetricasErro('O painel de analytics ainda não está disponível. Rode o script analytics_setup.sql no SQL Editor do Supabase.');
+      setMetricas([]);
+    } else {
+      setMetricas(data || []);
+    }
+    setMetricasLoading(false);
   }
 
   async function handleModerarCorrecao(id, novoStatus) {
@@ -774,7 +800,65 @@ export default function Admin() {
     noticias: { label: 'Notícias', dados: noticias, gerar: csvNoticias },
     correcoes: { label: 'Correções do cidadão', dados: correcoes, gerar: csvCorrecoes },
     auditoria: { label: 'Trilha de auditoria', dados: auditoria, gerar: csvAuditoria },
+    metricas: { label: 'Métricas de uso (analytics)', dados: metricas, gerar: csvMetricas },
   };
+
+  // ---------- Analytics de uso: agregações calculadas a partir de "metricas" ----------
+  const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+  const analyticsAgregados = useMemo(() => {
+    const contarPor = (lista, chave) => {
+      const mapa = new Map();
+      for (const item of lista) {
+        const valor = item[chave];
+        if (!valor) continue;
+        mapa.set(valor, (mapa.get(valor) || 0) + 1);
+      }
+      return [...mapa.entries()]
+        .map(([nome, total]) => ({ nome, total }))
+        .sort((a, b) => b.total - a.total);
+    };
+
+    const visualizacoes = metricas.filter((m) => m.tipo === 'visualizar_unidade');
+    const filtrosCategoria = metricas.filter((m) => m.tipo === 'filtro_categoria');
+    const paginasVistas = metricas.filter((m) => m.tipo === 'pagina_vista');
+    const bairros = metricas.filter((m) => m.tipo === 'bairro_acesso');
+
+    const porHora = new Array(24).fill(0);
+    const porDiaSemana = new Array(7).fill(0);
+    for (const m of [...visualizacoes, ...paginasVistas]) {
+      const d = new Date(m.criado_em);
+      if (Number.isNaN(d.getTime())) continue;
+      porHora[d.getHours()]++;
+      porDiaSemana[d.getDay()]++;
+    }
+    const maxHora = Math.max(1, ...porHora);
+    const maxDiaSemana = Math.max(1, ...porDiaSemana);
+    const horaDePico = porHora.indexOf(maxHora);
+    const diaDePico = porDiaSemana.indexOf(maxDiaSemana);
+
+    const primeiroRegistro = metricas.length > 0
+      ? metricas.reduce((min, m) => (new Date(m.criado_em) < new Date(min.criado_em) ? m : min), metricas[0])
+      : null;
+
+    return {
+      totalVisualizacoes: visualizacoes.length,
+      totalPaginasVistas: paginasVistas.length,
+      totalFiltrosCategoria: filtrosCategoria.length,
+      unidadesMaisVistas: contarPor(visualizacoes, 'unidade_nome').slice(0, 8),
+      categoriasMaisFiltradas: contarPor(filtrosCategoria, 'categoria').slice(0, 8),
+      paginasMaisVistas: contarPor(paginasVistas, 'pagina').slice(0, 5),
+      bairrosQueMaisAcessam: contarPor(bairros, 'bairro').slice(0, 8),
+      porHora,
+      maxHora,
+      horaDePico: visualizacoes.length + paginasVistas.length > 0 ? horaDePico : null,
+      porDiaSemana,
+      maxDiaSemana,
+      diaDePico: visualizacoes.length + paginasVistas.length > 0 ? DIAS_SEMANA[diaDePico] : null,
+      desde: primeiroRegistro ? primeiroRegistro.criado_em : null,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricas]);
 
   const handleExportarCsv = (chave) => {
     const config = EXPORT_CONFIG[chave];
@@ -895,6 +979,7 @@ export default function Admin() {
     },
     { id: 'usuarios', label: 'Cadastrar Usuário', icon: Users },
     { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
+    { id: 'analytics', label: 'Analytics de Uso', icon: BarChart3 },
     { id: 'exportar', label: 'Exportar Dados', icon: Download },
   ];
 
@@ -2607,6 +2692,201 @@ export default function Admin() {
                 </div>
               );
             })()}
+
+            {/* Panel: Analytics de Uso */}
+            {activePanel === 'analytics' && (
+              <div className="animate-fade-in space-y-6">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-fuchsia-100 rounded-xl flex items-center justify-center">
+                        <BarChart3 className="text-fuchsia-600" size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800">Analytics de Uso</h2>
+                        <p className="text-sm text-slate-500">
+                          Uso real e anônimo do portal público
+                          {analyticsAgregados.desde && ` — desde ${tempoRelativo(analyticsAgregados.desde)}`}.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchMetricas}
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-all"
+                    >
+                      ↻ Atualizar
+                    </button>
+                  </div>
+
+                  {metricasErro ? (
+                    <div role="alert" className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm flex items-start gap-2">
+                      <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                      <div><strong>Configuração necessária:</strong> {metricasErro}</div>
+                    </div>
+                  ) : metricasLoading ? (
+                    <div className="text-center py-10 text-slate-500">
+                      <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                      Carregando dados de uso...
+                    </div>
+                  ) : metricas.length === 0 ? (
+                    <div className="text-center py-10">
+                      <div className="text-4xl mb-3">📊</div>
+                      <p className="text-slate-500 font-medium">Ainda sem dados de uso registrados.</p>
+                      <p className="text-xs text-slate-400 mt-1">Os números começam a aparecer conforme o cidadão navega no portal público (mapa, eventos, notícias).</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Cards de resumo */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                          <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-wide">Unidades vistas</p>
+                          <p className="text-2xl font-extrabold text-indigo-800 mt-1">{analyticsAgregados.totalVisualizacoes}</p>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                          <p className="text-[11px] font-bold text-blue-500 uppercase tracking-wide">Visitas às páginas</p>
+                          <p className="text-2xl font-extrabold text-blue-800 mt-1">{analyticsAgregados.totalPaginasVistas}</p>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                          <p className="text-[11px] font-bold text-amber-500 uppercase tracking-wide">Filtros de categoria</p>
+                          <p className="text-2xl font-extrabold text-amber-800 mt-1">{analyticsAgregados.totalFiltrosCategoria}</p>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                          <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-wide">Bairros identificados</p>
+                          <p className="text-2xl font-extrabold text-emerald-800 mt-1">{analyticsAgregados.bairrosQueMaisAcessam.length}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {/* Unidades mais vistas */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                            <TrendingUp size={14} className="text-indigo-500" /> Unidades mais vistas
+                          </h3>
+                          {analyticsAgregados.unidadesMaisVistas.length === 0 ? (
+                            <p className="text-xs text-slate-400">Sem visualizações registradas ainda.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {analyticsAgregados.unidadesMaisVistas.map((item) => (
+                                <div key={item.nome}>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-semibold text-slate-700 truncate pr-2">{item.nome}</span>
+                                    <span className="text-slate-400 font-bold flex-shrink-0">{item.total}</span>
+                                  </div>
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-indigo-500 rounded-full"
+                                      style={{ width: `${(item.total / analyticsAgregados.unidadesMaisVistas[0].total) * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Categorias mais filtradas */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                            <Filter size={14} className="text-amber-500" /> Categorias mais filtradas
+                          </h3>
+                          {analyticsAgregados.categoriasMaisFiltradas.length === 0 ? (
+                            <p className="text-xs text-slate-400">Sem uso dos filtros de categoria ainda.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {analyticsAgregados.categoriasMaisFiltradas.map((item) => (
+                                <div key={item.nome}>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-semibold text-slate-700 truncate pr-2">{item.nome}</span>
+                                    <span className="text-slate-400 font-bold flex-shrink-0">{item.total}</span>
+                                  </div>
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-amber-500 rounded-full"
+                                      style={{ width: `${(item.total / analyticsAgregados.categoriasMaisFiltradas[0].total) * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bairros que mais acessam */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                            <MapPinned size={14} className="text-emerald-500" /> Bairros que mais acessam
+                          </h3>
+                          {analyticsAgregados.bairrosQueMaisAcessam.length === 0 ? (
+                            <p className="text-xs text-slate-400">
+                              Ainda sem dados de bairro — aparecem quando o cidadão usa o botão "Localizar-me" no mapa (a coordenada exata nunca é enviada, só o nome do bairro).
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {analyticsAgregados.bairrosQueMaisAcessam.map((item) => (
+                                <div key={item.nome}>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-semibold text-slate-700 truncate pr-2">{item.nome}</span>
+                                    <span className="text-slate-400 font-bold flex-shrink-0">{item.total}</span>
+                                  </div>
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-emerald-500 rounded-full"
+                                      style={{ width: `${(item.total / analyticsAgregados.bairrosQueMaisAcessam[0].total) * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Picos de uso */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                            <Flame size={14} className="text-red-500" /> Picos de uso
+                          </h3>
+                          {analyticsAgregados.horaDePico === null ? (
+                            <p className="text-xs text-slate-400">Sem dados suficientes ainda.</p>
+                          ) : (
+                            <>
+                              <p className="text-xs text-slate-500 mb-3">
+                                Horário com mais acessos: <strong className="text-slate-700">{analyticsAgregados.horaDePico}h</strong>
+                                {' · '}Dia da semana com mais acessos: <strong className="text-slate-700">{analyticsAgregados.diaDePico}</strong>
+                              </p>
+                              <div className="flex items-end gap-[2px] h-16">
+                                {analyticsAgregados.porHora.map((total, hora) => (
+                                  <div
+                                    key={hora}
+                                    title={`${hora}h: ${total} acesso(s)`}
+                                    className={`flex-1 rounded-sm ${hora === analyticsAgregados.horaDePico ? 'bg-red-500' : 'bg-slate-200'}`}
+                                    style={{ height: `${Math.max(4, (total / analyticsAgregados.maxHora) * 100)}%` }}
+                                  />
+                                ))}
+                              </div>
+                              <div className="flex justify-between text-[9px] text-slate-400 mt-1">
+                                <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {analyticsAgregados.paginasMaisVistas.length > 0 && (
+                        <div className="mt-5 border-t border-slate-100 pt-4 flex items-center gap-4 flex-wrap text-xs">
+                          <span className="font-bold text-slate-500">Páginas mais visitadas:</span>
+                          {analyticsAgregados.paginasMaisVistas.map((item) => (
+                            <span key={item.nome} className="px-2.5 py-1 bg-slate-100 rounded-full font-semibold text-slate-600">
+                              {item.nome} <span className="text-slate-400">({item.total})</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Panel: Exportar Dados */}
             {activePanel === 'exportar' && (

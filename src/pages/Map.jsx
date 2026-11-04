@@ -19,6 +19,7 @@ import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
 import IntentionSearchPanel from '../components/IntentionSearchPanel';
+import { registrarVisualizacaoUnidade, registrarFiltroCategoria, registrarPaginaVista, registrarBairroPorCoordenada } from '../lib/metricas';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -291,6 +292,7 @@ export default function Map() {
     }
     fetchUnidades();
     fetchNoticias();
+    registrarPaginaVista('/');
   }, []);
 
   const toggleFavorito = (id) => {
@@ -336,6 +338,7 @@ export default function Map() {
       setCenter([unidade.lat, unidade.lng]);
       setZoom(zoomAlvo);
       setUnidadeSelecionada(unidade);
+      registrarVisualizacaoUnidade(unidade);
     };
     if (delay > 0) setTimeout(abrir, delay);
     else abrir();
@@ -436,6 +439,7 @@ export default function Map() {
         setZoom(14);
         setQuery('Minha localização atual');
         setUserLocation([userLat, userLon]);
+        registrarBairroPorCoordenada(userLat, userLon);
 
         if (unidades.length > 0) {
           const unidadesComDistancia = unidades
@@ -524,11 +528,14 @@ export default function Map() {
               <button
                 key={f}
                 type="button"
-                onClick={() => setTipoFiltro(f)}
+                onClick={() => {
+                  setTipoFiltro(f);
+                  if (f !== 'Favoritos') registrarFiltroCategoria(f);
+                }}
                 aria-pressed={tipoFiltro === f}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${tipoFiltro === f
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                   }`}
               >
                 {f === 'Favoritos' && (
@@ -698,11 +705,11 @@ export default function Map() {
                         role="button"
                         tabIndex={0}
                         aria-label={`Ver ${u.nome} no mapa${hasDistancia
-                            ? `, ${u.distancia < 1
-                              ? `${(u.distancia * 1000).toFixed(0)} metros`
-                              : `${u.distancia.toFixed(1)} quilômetros`
-                            } de distância`
-                            : ''
+                          ? `, ${u.distancia < 1
+                            ? `${(u.distancia * 1000).toFixed(0)} metros`
+                            : `${u.distancia.toFixed(1)} quilômetros`
+                          } de distância`
+                          : ''
                           }`}
                         className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-200 transition-all cursor-pointer animate-slide-up stagger-${Math.min(
                           index + 1,
@@ -730,8 +737,8 @@ export default function Map() {
                           {hasDistancia && (
                             <span
                               className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${index === 0
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : 'bg-slate-100 text-slate-600'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-100 text-slate-600'
                                 }`}
                             >
                               {u.distancia < 1

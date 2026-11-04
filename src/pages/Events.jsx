@@ -20,6 +20,7 @@ import Toast from '../components/Toast';
 import { EventCardSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import AddToCalendarButton from '../components/AddToCalendarButton';
+import { registrarPaginaVista } from '../lib/metricas';
 
 const FAVORITOS_KEY = 'votorantim-campanhas-favoritas';
 
@@ -69,6 +70,7 @@ export default function Events() {
       setLoading(false);
     }
     fetchEvents();
+    registrarPaginaVista('/eventos');
   }, []);
 
   const toggleFavorito = (id) => {
