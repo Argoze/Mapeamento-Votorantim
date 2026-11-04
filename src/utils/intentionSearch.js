@@ -2,7 +2,7 @@
 // Traduz o que o cidadão está sentindo ou precisando (linguagem leiga)
 // para o tipo de serviço correto no SUS/Município (UBS, ESF, UPA, Hospital etc.)
 
-function normalizeText(text) {
+export function normalizeText(text) {
   if (!text) return '';
   return text
     .toLowerCase()

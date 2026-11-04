@@ -51,13 +51,12 @@ export default function NewsCarousel({ noticias = [] }) {
         {items.map((noticia, index) => (
           <div
             key={noticia.id}
-            className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-              index === current
+            className={`absolute inset-0 transition-all duration-700 ease-in-out ${index === current
                 ? 'opacity-100 translate-x-0'
                 : index < current
-                ? 'opacity-0 -translate-x-full'
-                : 'opacity-0 translate-x-full'
-            }`}
+                  ? 'opacity-0 -translate-x-full'
+                  : 'opacity-0 translate-x-full'
+              }`}
           >
             {/* Background Image or Gradient */}
             {noticia.imagem_url ? (
@@ -100,13 +99,13 @@ export default function NewsCarousel({ noticias = [] }) {
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/15 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/15 dark:bg-white/10 dark:bg-white/5 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
           >
             <ChevronLeft size={20} />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/15 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/15 dark:bg-white/10 dark:bg-white/5 hover:bg-white/30 backdrop-blur-sm text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
           >
             <ChevronRight size={20} />
           </button>
@@ -121,11 +120,10 @@ export default function NewsCarousel({ noticias = [] }) {
             <button
               key={index}
               onClick={() => setCurrent(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === current
-                  ? 'bg-white w-6'
+              className={`h-2 rounded-full transition-all duration-300 ${index === current
+                  ? 'bg-white dark:bg-slate-900 w-6'
                   : 'bg-white/40 hover:bg-white/60 w-2'
-              }`}
+                }`}
             />
           ))}
         </div>
@@ -133,7 +131,7 @@ export default function NewsCarousel({ noticias = [] }) {
         {/* See all link */}
         <Link
           to="/noticias"
-          className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white transition-colors bg-white/10 hover:bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg"
+          className="flex items-center gap-1 text-[11px] font-bold text-white/80 hover:text-white transition-colors bg-white/10 dark:bg-white/5 hover:bg-white/20 dark:hover:bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-lg"
         >
           Ver todas
           <ArrowRight size={12} />

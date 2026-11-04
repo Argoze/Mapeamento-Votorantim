@@ -20,7 +20,7 @@ function timeAgo(dateStr) {
 
 function NoticiaCardSkeleton() {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
       <div className="h-48 animate-shimmer" />
       <div className="p-5 space-y-3">
         <div className="h-4 w-24 rounded-lg animate-shimmer" />
@@ -42,13 +42,13 @@ function NoticiaImageGallery({ noticia }) {
       <img
         src={hasImages ? noticia.imagens[0] : noticia.imagem_url}
         alt={noticia.titulo}
-        className="w-full h-[300px] sm:h-[450px] object-cover border-b border-slate-100"
+        className="w-full h-[300px] sm:h-[450px] object-cover border-b border-slate-100 dark:border-slate-800"
       />
     );
   }
 
   return (
-    <div className="relative h-[300px] sm:h-[450px] overflow-hidden group border-b border-slate-100">
+    <div className="relative h-[300px] sm:h-[450px] overflow-hidden group border-b border-slate-100 dark:border-slate-800">
       <img
         src={noticia.imagens[currentImg]}
         alt={`${noticia.titulo} - ${currentImg + 1}`}
@@ -60,14 +60,14 @@ function NoticiaImageGallery({ noticia }) {
       <button
         onClick={() => setCurrentImg(prev => (prev - 1 + noticia.imagens.length) % noticia.imagens.length)}
         aria-label="Imagem anterior"
-        className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white text-slate-800 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
+        className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
       >
         <ChevronLeft size={20} />
       </button>
       <button
         onClick={() => setCurrentImg(prev => (prev + 1) % noticia.imagens.length)}
         aria-label="Próxima imagem"
-        className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white text-slate-800 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
+        className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
       >
         <ChevronRight size={20} />
       </button>
@@ -80,7 +80,7 @@ function NoticiaImageGallery({ noticia }) {
             onClick={() => setCurrentImg(i)}
             aria-label={`Ver imagem ${i + 1} de ${noticia.imagens.length}`}
             aria-current={i === currentImg}
-            className={`h-2 rounded-full transition-all duration-300 ${i === currentImg ? 'bg-white w-5' : 'bg-white/50 w-2 hover:bg-white/85'}`}
+            className={`h-2 rounded-full transition-all duration-300 ${i === currentImg ? 'bg-white dark:bg-slate-900 w-5' : 'bg-white/50 w-2 hover:bg-white/85'}`}
           />
         ))}
       </div>
@@ -131,19 +131,19 @@ export default function Noticias() {
   // Detail view
   if (selectedNoticia) {
     return (
-      <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+      <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
         <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
         <Navbar />
         <main id="conteudo-principal" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
           <button
             onClick={() => setSelectedNoticia(null)}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800 mb-6 transition-colors animate-slide-down"
+            className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 mb-6 transition-colors animate-slide-down"
           >
             <ArrowLeft size={16} />
             Voltar para notícias
           </button>
 
-          <article className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 animate-fade-in">
+          <article className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-800 animate-fade-in">
             <NoticiaImageGallery noticia={selectedNoticia} />
             <div className="p-6 sm:p-10">
               <div className="flex items-center gap-3 mb-4">
@@ -152,19 +152,19 @@ export default function Noticias() {
                     ⭐ Destaque
                   </span>
                 )}
-                <span className="text-xs text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                   <Clock size={12} />
                   {timeAgo(selectedNoticia.criado_em)}
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-4 leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 mb-4 leading-tight">
                 {selectedNoticia.titulo}
               </h1>
-              <p className="text-slate-600 text-lg font-medium mb-6 border-l-4 border-blue-500 pl-4">
+              <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-lg font-medium mb-6 border-l-4 border-indigo-500 pl-4">
                 {selectedNoticia.resumo}
               </p>
               {selectedNoticia.conteudo && (
-                <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed whitespace-pre-wrap">
+                <div className="prose prose-slate max-w-none text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
                   {selectedNoticia.conteudo}
                 </div>
               )}
@@ -178,45 +178,43 @@ export default function Noticias() {
   }
 
   return (
-    <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+    <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
       <Navbar />
 
-      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10" />
-
-      <main id="conteudo-principal" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
-        {/* Header */}
-        <header className="mb-8 animate-slide-up">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
-                  <Newspaper className="h-5 w-5 text-white" />
-                </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-                  <span className="text-gradient">Notícias</span>
-                </h1>
-              </div>
-              <p className="text-slate-500 text-base sm:text-lg">
-                Fique por dentro das novidades da saúde em Votorantim.
-              </p>
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 pt-28 pb-16 sm:pt-32 sm:pb-20">
+        <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3 mb-3 animate-slide-up">
+            <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
+              <Newspaper className="h-5 w-5 text-white" />
             </div>
-
-            {/* Search */}
-            <div className="relative w-full sm:w-72">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-              <label htmlFor="busca-noticias" className="sr-only">Buscar notícia</label>
-              <input
-                id="busca-noticias"
-                type="text"
-                placeholder="Buscar notícia..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
-              />
-            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Notícias</h1>
           </div>
-        </header>
+          <p className="text-indigo-100 text-base sm:text-lg max-w-2xl animate-slide-up" style={{ animationDelay: '0.05s' }}>
+            Fique por dentro das novidades da saúde em Votorantim.
+          </p>
+        </div>
+      </section>
+
+      <main id="conteudo-principal" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-10 relative z-10">
+        {/* Busca */}
+        <div className="mb-6 flex justify-end animate-slide-up">
+          <div className="relative w-full sm:w-80">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+            <label htmlFor="busca-noticias" className="sr-only">Buscar notícia</label>
+            <input
+              id="busca-noticias"
+              type="text"
+              placeholder="Buscar notícia..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-md"
+            />
+          </div>
+        </div>
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -226,12 +224,12 @@ export default function Noticias() {
             <NoticiaCardSkeleton />
           </div>
         ) : noticiasFiltradas.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm animate-scale-in">
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-scale-in">
             <div className="text-5xl mb-4 animate-float">📰</div>
-            <h3 className="text-lg font-bold text-slate-700 mb-1">
+            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">
               {busca ? 'Nenhuma notícia encontrada' : 'Nenhuma notícia publicada'}
             </h3>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-500 dark:text-slate-400 dark:text-slate-500 text-sm">
               {busca ? 'Tente buscar por outro termo.' : 'Aguarde novas publicações da equipe de saúde.'}
             </p>
           </div>
@@ -245,7 +243,7 @@ export default function Noticias() {
                 tabIndex={0}
                 aria-label={`Ler notícia em destaque: ${destaque.titulo}`}
                 onKeyDown={onActivateKey(() => setSelectedNoticia(destaque))}
-                className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 cursor-pointer group hover:shadow-xl transition-all animate-slide-up"
+                className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-800 cursor-pointer group hover:shadow-xl transition-all animate-slide-up"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2">
                   {destaque.imagem_url ? (
@@ -255,7 +253,7 @@ export default function Noticias() {
                       className="w-full h-[250px] md:h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="w-full h-[250px] md:h-full bg-gradient-to-br from-blue-500 via-indigo-500 to-cyan-500 flex items-center justify-center">
+                    <div className="w-full h-[250px] md:h-full bg-gradient-to-br from-indigo-500 via-indigo-600 to-cyan-500 flex items-center justify-center">
                       <Newspaper size={60} className="text-white/30" />
                     </div>
                   )}
@@ -264,18 +262,18 @@ export default function Noticias() {
                       <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
                         ⭐ Destaque
                       </span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                         <Clock size={12} />
                         {timeAgo(destaque.criado_em)}
                       </span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 leading-tight group-hover:text-blue-700 transition-colors">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-50 mb-3 leading-tight group-hover:text-indigo-700 transition-colors">
                       {destaque.titulo}
                     </h2>
-                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-3 mb-4">
+                    <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-sm leading-relaxed line-clamp-3 mb-4">
                       {destaque.resumo}
                     </p>
-                    <span className="text-blue-600 text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                    <span className="text-indigo-600 text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
                       Ler mais <ArrowLeft size={14} className="rotate-180" />
                     </span>
                   </div>
@@ -286,7 +284,7 @@ export default function Noticias() {
             {/* Grid de notícias */}
             {demais.length > 0 && (
               <div>
-                <h2 className="text-lg font-bold text-slate-800 mb-4">Últimas Notícias</h2>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Últimas Notícias</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {demais.map((noticia, index) => (
                     <div
@@ -296,7 +294,7 @@ export default function Noticias() {
                       tabIndex={0}
                       aria-label={`Ler notícia: ${noticia.titulo}`}
                       onKeyDown={onActivateKey(() => setSelectedNoticia(noticia))}
-                      className={`glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-100 cursor-pointer group hover:shadow-lg hover:border-slate-200 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
+                      className={`glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 cursor-pointer group hover:shadow-lg hover:border-slate-200 dark:border-slate-700 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
                     >
                       {noticia.imagem_url ? (
                         <div className="overflow-hidden h-48">
@@ -308,23 +306,23 @@ export default function Noticias() {
                         </div>
                       ) : (
                         <div className="h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                          <Newspaper size={40} className="text-slate-300" />
+                          <Newspaper size={40} className="text-slate-300 dark:text-slate-600" />
                         </div>
                       )}
                       <div className="p-5">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
                             <Clock size={11} />
                             {timeAgo(noticia.criado_em)}
                           </span>
                         </div>
-                        <h3 className="font-bold text-slate-800 leading-tight mb-2 line-clamp-2 group-hover:text-blue-700 transition-colors">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2 line-clamp-2 group-hover:text-indigo-700 transition-colors">
                           {noticia.titulo}
                         </h3>
-                        <p className="text-sm text-slate-500 line-clamp-2">
+                        <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 line-clamp-2">
                           {noticia.resumo}
                         </p>
-                        <span className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-blue-600 group-hover:gap-2 transition-all">
+                        <span className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-indigo-600 group-hover:gap-2 transition-all">
                           <Eye size={12} /> Ler mais
                         </span>
                       </div>

@@ -164,33 +164,33 @@ export default function AccessibilityToolbar() {
           ref={painelRef}
           role="dialog"
           aria-label="Opções de acessibilidade"
-          className="absolute bottom-16 right-0 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 mb-1"
+          className="absolute bottom-16 right-0 w-72 bg-white dark:bg-slate-900 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 dark:border-slate-700 p-4 mb-1"
         >
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-bold text-slate-800">Acessibilidade</h2>
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 dark:text-slate-100">Acessibilidade</h2>
             <button
               type="button"
               onClick={() => { setAberto(false); botaoRef.current?.focus(); }}
               aria-label="Fechar painel de acessibilidade"
-              className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors"
+              className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:text-slate-200 p-1 rounded-lg transition-colors"
             >
               <X size={16} />
             </button>
           </div>
 
           <div className="mb-3">
-            <p className="text-xs font-semibold text-slate-600 mb-2" id="a11y-fonte-label">Tamanho do texto</p>
+            <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 dark:text-slate-600 mb-2" id="a11y-fonte-label">Tamanho do texto</p>
             <div className="flex items-center gap-2" role="group" aria-labelledby="a11y-fonte-label">
               <button
                 type="button"
                 onClick={diminuirFonte}
                 disabled={nivelFonte === 'normal'}
                 aria-label="Diminuir tamanho do texto"
-                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Minus size={14} /> A
               </button>
-              <span className="text-xs text-slate-500 w-20 text-center" aria-live="polite">
+              <span className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500 w-20 text-center" aria-live="polite">
                 {nivelFonte === 'normal' ? 'Normal' : nivelFonte === 'grande' ? 'Grande' : 'Extra'}
               </span>
               <button
@@ -198,7 +198,7 @@ export default function AccessibilityToolbar() {
                 onClick={aumentarFonte}
                 disabled={nivelFonte === 'extra-grande'}
                 aria-label="Aumentar tamanho do texto"
-                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <Plus size={14} /> A
               </button>
@@ -211,8 +211,8 @@ export default function AccessibilityToolbar() {
               onClick={() => setAltoContraste(v => !v)}
               aria-pressed={altoContraste}
               className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${altoContraste
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                 }`}
             >
               <span className="flex items-center gap-2">
@@ -229,8 +229,8 @@ export default function AccessibilityToolbar() {
               onClick={() => setEspacamentoAumentado(v => !v)}
               aria-pressed={espacamentoAumentado}
               className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${espacamentoAumentado
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                 }`}
             >
               <span className="flex items-center gap-2">
@@ -245,8 +245,8 @@ export default function AccessibilityToolbar() {
               onClick={() => setDestacarLinks(v => !v)}
               aria-pressed={destacarLinks}
               className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${destacarLinks
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                 }`}
             >
               <span className="flex items-center gap-2">
@@ -261,8 +261,8 @@ export default function AccessibilityToolbar() {
               onClick={() => setGuiaLeitura(v => !v)}
               aria-pressed={guiaLeitura}
               className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${guiaLeitura
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                 }`}
             >
               <span className="flex items-center gap-2">
@@ -277,8 +277,8 @@ export default function AccessibilityToolbar() {
               onClick={() => setOcultarImagens(v => !v)}
               aria-pressed={ocultarImagens}
               className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm font-semibold transition-colors ${ocultarImagens
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                 }`}
             >
               <span className="flex items-center gap-2">
@@ -292,7 +292,7 @@ export default function AccessibilityToolbar() {
           <button
             type="button"
             onClick={resetar}
-            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors pt-1"
+            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-blue-600 transition-colors pt-1"
           >
             <RotateCcw size={12} />
             Restaurar padrão
@@ -301,12 +301,13 @@ export default function AccessibilityToolbar() {
       )}
 
       <button
+        id="botao-acessibilidade"
         ref={botaoRef}
         type="button"
         onClick={() => setAberto(v => !v)}
         aria-expanded={aberto}
         aria-label="Opções de acessibilidade"
-        className="h-12 w-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
+        className="h-12 w-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
       >
         <Accessibility size={22} />
       </button>

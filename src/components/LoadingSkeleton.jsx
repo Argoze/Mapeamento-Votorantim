@@ -1,6 +1,6 @@
 export function CardSkeleton() {
   return (
-    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+    <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl">
       <div className="flex items-center justify-between mb-3">
         <div className="h-4 w-32 rounded-lg animate-shimmer"></div>
         <div className="h-6 w-14 rounded-lg animate-shimmer"></div>
@@ -12,7 +12,7 @@ export function CardSkeleton() {
 
 export function EventCardSkeleton() {
   return (
-    <div className="glass-panel p-6 rounded-2xl border border-slate-200">
+    <div className="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
       <div className="flex items-start gap-4">
         <div className="h-12 w-12 rounded-full animate-shimmer flex-shrink-0"></div>
         <div className="flex-1 space-y-3">

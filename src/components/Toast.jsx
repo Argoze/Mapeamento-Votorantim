@@ -37,7 +37,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 5
         <div className="flex items-start gap-3 p-4">
           {s.icon}
           <p className={`${s.text} text-sm font-semibold flex-1 leading-relaxed`}>{message}</p>
-          <button onClick={() => { setVisible(false); setTimeout(() => onClose?.(), 300); }} className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+          <button onClick={() => { setVisible(false); setTimeout(() => onClose?.(), 300); }} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:text-slate-300 dark:text-slate-600 transition-colors flex-shrink-0">
             <X size={16} />
           </button>
         </div>

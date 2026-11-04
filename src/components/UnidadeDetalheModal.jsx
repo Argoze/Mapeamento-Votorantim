@@ -63,13 +63,13 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
       role="dialog"
       aria-modal="true"
       aria-label={unidade.nome}
-      className="absolute inset-2 sm:inset-y-2 sm:left-2 sm:right-auto z-[1200] w-auto sm:w-[320px] md:w-[360px] bg-white rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
+      className="absolute inset-2 sm:inset-y-2 sm:left-2 sm:right-auto z-[1200] w-auto sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
     >
       <button
         type="button"
         onClick={onClose}
         aria-label="Fechar detalhes"
-        className="absolute top-3 right-3 z-10 h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow-md flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors"
+        className="absolute top-3 right-3 z-10 h-9 w-9 rounded-full bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:bg-slate-900 shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:text-slate-50 transition-colors"
       >
         <X size={18} />
       </button>
@@ -87,7 +87,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
                 type="button"
                 onClick={() => setImagemAtiva(i => (i === 0 ? imagens.length - 1 : i - 1))}
                 aria-label="Foto anterior"
-                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/85 hover:bg-white shadow-md flex items-center justify-center text-slate-700 transition-colors"
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/85 hover:bg-white dark:bg-slate-900 shadow-md flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
@@ -95,7 +95,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
                 type="button"
                 onClick={() => setImagemAtiva(i => (i === imagens.length - 1 ? 0 : i + 1))}
                 aria-label="Próxima foto"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/85 hover:bg-white shadow-md flex items-center justify-center text-slate-700 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/85 hover:bg-white dark:bg-slate-900 shadow-md flex items-center justify-center text-slate-700 dark:text-slate-200 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -106,7 +106,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
                     type="button"
                     onClick={() => setImagemAtiva(idx)}
                     aria-label={`Ver foto ${idx + 1}`}
-                    className={`h-1.5 rounded-full transition-all ${idx === imagemAtiva ? 'w-5 bg-white' : 'w-1.5 bg-white/60'}`}
+                    className={`h-1.5 rounded-full transition-all ${idx === imagemAtiva ? 'w-5 bg-white dark:bg-slate-900' : 'w-1.5 bg-white/60'}`}
                   />
                 ))}
               </div>
@@ -115,7 +115,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
         </div>
       ) : (
         <div className="w-full h-28 sm:h-24 rounded-t-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-          <MapPin size={32} className="text-slate-300" />
+          <MapPin size={32} className="text-slate-300 dark:text-slate-600" />
         </div>
       )}
 
@@ -134,7 +134,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
                 title={lendoEmVozAlta ? 'Parar leitura' : 'Ouvir'}
                 className={`h-8 w-8 rounded-full flex items-center justify-center transition-colors ${lendoEmVozAlta
                   ? 'bg-blue-600 text-white animate-pulse'
-                  : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+                  : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 hover:bg-blue-50'
                   }`}
               >
                 {lendoEmVozAlta ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -143,7 +143,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
             <button
               type="button"
               onClick={() => onToggleFavorito(unidade.id)}
-              className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+              className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors flex-shrink-0"
               title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
               aria-label={isFavorito ? `Remover ${unidade.nome} dos favoritos` : `Favoritar ${unidade.nome}`}
               aria-pressed={isFavorito}
@@ -153,9 +153,9 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           </div>
         </div>
 
-        <h2 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{unidade.nome}</h2>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 mb-1.5 leading-snug">{unidade.nome}</h2>
 
-        <p className="flex items-start gap-1.5 text-slate-500 text-sm mb-5">
+        <p className="flex items-start gap-1.5 text-slate-500 dark:text-slate-400 dark:text-slate-500 text-sm mb-5">
           <MapPin size={15} className="mt-0.5 flex-shrink-0" />
           {unidade.endereco}
         </p>
@@ -182,13 +182,13 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           {unidade.telefone ? (
             <a
               href={`tel:${unidade.telefone}`}
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-sm transition-colors"
             >
               <Phone size={16} />
               {unidade.telefone}
             </a>
           ) : (
-            <span className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-50 text-slate-400 font-semibold text-sm">
+            <span className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 text-slate-400 dark:text-slate-500 font-semibold text-sm">
               <Phone size={16} />
               Sem telefone cadastrado
             </span>

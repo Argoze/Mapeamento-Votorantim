@@ -1,11 +1,15 @@
 @import "tailwindcss";
 
+/* Modo escuro acionado por classe (.dark na <html>), não só por preferência
+   do sistema — ver src/lib/theme.js e o botão de sol/lua na Navbar. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ===== DESIGN SYSTEM - Saúde Votorantim ===== */
 
 :root {
-  --color-primary: #1e40af;
-  --color-primary-light: #3b82f6;
-  --color-primary-dark: #1e3a8a;
+  --color-primary: #4338ca;
+  --color-primary-light: #6366f1;
+  --color-primary-dark: #312e81;
   --color-accent: #059669;
   --color-accent-light: #10b981;
   --color-danger: #dc2626;
@@ -15,8 +19,21 @@
   --color-surface-elevated: rgba(255, 255, 255, 0.95);
 }
 
+.dark {
+  --color-surface: #0b1120;
+  --color-surface-elevated: rgba(15, 23, 42, 0.92);
+}
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -24,6 +41,7 @@ body {
   background-color: var(--color-surface);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease;
 }
 
 /* ===== ACESSIBILIDADE (e-MAG / WCAG) ===== */
@@ -51,6 +69,7 @@ body {
   font-size: 0.875rem;
   transition: top 0.15s ease-in-out;
 }
+
 .skip-link:focus {
   top: 1rem;
 }
@@ -59,10 +78,13 @@ body {
    da raiz redimensiona proporcionalmente o site inteiro (texto, espaçamentos
    e ícones em rem), mantendo o layout coerente. */
 html.a11y-fonte-grande {
-  font-size: 112.5%; /* ~18px */
+  font-size: 112.5%;
+  /* ~18px */
 }
+
 html.a11y-fonte-extra-grande {
-  font-size: 125%; /* ~20px */
+  font-size: 125%;
+  /* ~20px */
 }
 
 /* Alto contraste: fundo branco sólido, texto preto, links sublinhados e
@@ -73,27 +95,32 @@ html.a11y-alto-contraste body {
   background: #ffffff !important;
   color: #000000 !important;
 }
+
 html.a11y-alto-contraste .glass-panel {
   background: #ffffff !important;
   border: 2px solid #000000 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
 html.a11y-alto-contraste .text-gradient,
 html.a11y-alto-contraste .text-gradient-green {
   background: none !important;
   -webkit-text-fill-color: initial !important;
   color: #000000 !important;
 }
+
 html.a11y-alto-contraste [class*="text-slate-3"],
 html.a11y-alto-contraste [class*="text-slate-4"],
 html.a11y-alto-contraste [class*="text-slate-5"],
 html.a11y-alto-contraste [class*="text-slate-6"] {
   color: #0f172a !important;
 }
+
 html.a11y-alto-contraste a {
   text-decoration: underline !important;
 }
+
 html.a11y-alto-contraste *:focus-visible {
   outline: 3px solid #000000 !important;
   outline-offset: 2px !important;
@@ -105,6 +132,7 @@ html.a11y-espacamento-aumentado body {
   letter-spacing: 0.02em !important;
   word-spacing: 0.18em !important;
 }
+
 html.a11y-espacamento-aumentado p,
 html.a11y-espacamento-aumentado li,
 html.a11y-espacamento-aumentado span,
@@ -153,15 +181,29 @@ html.a11y-ocultar-imagens img {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 
+  box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.05),
     0 2px 4px -2px rgba(0, 0, 0, 0.03);
+}
+
+.dark .glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -2px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== TEXT GRADIENT ===== */
 
 .text-gradient {
-  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #06b6d4 100%);
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #0891b2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dark .text-gradient {
+  background: linear-gradient(135deg, #818cf8 0%, #a5b4fc 50%, #67e8f9 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -177,68 +219,150 @@ html.a11y-ocultar-imagens img {
 /* ===== ANIMATIONS ===== */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(24px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes pulseSoft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @keyframes toastProgress {
-  from { width: 100%; }
-  to { width: 0%; }
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 @keyframes badgePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
-  50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
 }
 
 /* Pin do local selecionado no mapa: "pousa" com uma leve animação de queda,
    como o marcador vermelho do Google Maps quando você clica num resultado —
    assim fica óbvio qual local foi clicado mesmo entre vários pins juntos. */
 @keyframes markerDrop {
-  0% { transform: translateY(-26px) scale(0.85); opacity: 0; }
-  60% { transform: translateY(3px) scale(1.05); opacity: 1; }
-  100% { transform: translateY(0) scale(1); }
+  0% {
+    transform: translateY(-26px) scale(0.85);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(3px) scale(1.05);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 
 .custom-marker-selecionado-pin {
@@ -290,12 +414,35 @@ html.a11y-ocultar-imagens img {
 }
 
 /* Staggered animations for lists */
-.stagger-1 { animation-delay: 0.05s; opacity: 0; }
-.stagger-2 { animation-delay: 0.1s; opacity: 0; }
-.stagger-3 { animation-delay: 0.15s; opacity: 0; }
-.stagger-4 { animation-delay: 0.2s; opacity: 0; }
-.stagger-5 { animation-delay: 0.25s; opacity: 0; }
-.stagger-6 { animation-delay: 0.3s; opacity: 0; }
+.stagger-1 {
+  animation-delay: 0.05s;
+  opacity: 0;
+}
+
+.stagger-2 {
+  animation-delay: 0.1s;
+  opacity: 0;
+}
+
+.stagger-3 {
+  animation-delay: 0.15s;
+  opacity: 0;
+}
+
+.stagger-4 {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.stagger-5 {
+  animation-delay: 0.25s;
+  opacity: 0;
+}
+
+.stagger-6 {
+  animation-delay: 0.3s;
+  opacity: 0;
+}
 
 /* ===== CUSTOM SCROLLBAR ===== */
 
@@ -316,6 +463,14 @@ html.a11y-ocultar-imagens img {
   background: #94a3b8;
 }
 
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 /* ===== LEAFLET OVERRIDES ===== */
 
 .leaflet-container {
@@ -325,7 +480,7 @@ html.a11y-ocultar-imagens img {
 
 .leaflet-popup-content-wrapper {
   border-radius: 16px !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.12) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
   padding: 4px !important;
 }
 
@@ -337,7 +492,17 @@ html.a11y-ocultar-imagens img {
 }
 
 .leaflet-popup-tip {
-  box-shadow: 0 4px 6px rgba(0,0,0,0.08) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.dark .leaflet-container {
+  filter: brightness(0.92) contrast(1.05);
 }
 
 /* ===== TOAST ===== */
@@ -348,7 +513,10 @@ html.a11y-ocultar-imagens img {
 
 /* ===== FOCUS STYLES ===== */
 
-input:focus, select:focus, textarea:focus, button:focus-visible {
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
@@ -392,4 +560,3 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .prose p {
   margin-bottom: 1em;
 }
-

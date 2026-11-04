@@ -40,8 +40,8 @@ export default function StatsCard({ icon: Icon, value, label, color = 'blue', de
         <Icon className={c.icon} size={24} />
       </div>
       <div>
-        <p className="text-2xl font-extrabold text-slate-800 tabular-nums">{count}</p>
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tabular-nums">{count}</p>
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</p>
       </div>
     </div>
   );

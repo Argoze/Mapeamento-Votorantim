@@ -109,7 +109,7 @@ export default function Events() {
   const filters = ['Todos', 'Urgente', 'Informativo', 'Favoritos'];
 
   return (
-    <div className="text-slate-800 antialiased relative min-h-screen overflow-x-hidden bg-slate-50">
+    <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       <a href="#conteudo-principal" className="skip-link">
         Pular para o conteúdo principal
       </a>
@@ -125,39 +125,41 @@ export default function Events() {
         />
       )}
 
-      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10" />
-
-      <main id="conteudo-principal" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
-        {/* Header */}
-        <header className="mb-8 animate-slide-up">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 pt-28 pb-16 sm:pt-32 sm:pb-20">
+        <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
+            <div className="animate-slide-up">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
                   <Megaphone className="h-5 w-5 text-white" />
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-                  <span className="text-gradient">Alertas e Campanhas</span>
-                </h1>
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Alertas e Campanhas</h1>
               </div>
-              <p className="text-slate-500 text-base sm:text-lg">
+              <p className="text-indigo-100 text-base sm:text-lg max-w-xl">
                 Fique por dentro dos mutirões e eventos de saúde em Votorantim. Adicione lembretes direto ao seu calendário!
               </p>
             </div>
 
             <Link
               to="/login"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center gap-2 hover:shadow-lg text-sm"
+              className="bg-white dark:bg-slate-900 hover:bg-indigo-50 text-indigo-700 font-bold py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center gap-2 hover:shadow-lg text-sm whitespace-nowrap animate-slide-up"
+              style={{ animationDelay: '0.05s' }}
             >
               <span className="text-lg">+</span>
               Novo evento
             </Link>
           </div>
-        </header>
+        </div>
+      </section>
+
+      <main id="conteudo-principal" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 pb-12 relative z-10">
 
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-2 mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <Filter size={16} className="text-slate-400 mr-1" />
+          <Filter size={16} className="text-slate-400 dark:text-slate-500 mr-1" />
           {filters.map((f) => {
             const count =
               f === 'Todos'
@@ -182,7 +184,7 @@ export default function Events() {
                       : f === 'Favoritos'
                         ? 'bg-rose-500 text-white shadow-md'
                         : 'bg-slate-800 text-white shadow-md'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                   }`}
               >
                 {f === 'Favoritos' && (
@@ -209,18 +211,18 @@ export default function Events() {
               <EventCardSkeleton />
             </>
           ) : eventosFiltrados.length === 0 ? (
-            <div className="col-span-1 md:col-span-2 text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm animate-scale-in p-6">
+            <div className="col-span-1 md:col-span-2 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-scale-in p-6">
               <div className="text-5xl mb-4 animate-float">
                 {filtro === 'Favoritos' ? '❤️' : '📋'}
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-1">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">
                 {filtro === 'Favoritos'
                   ? 'Você ainda não favoritou nenhuma campanha'
                   : filtro === 'Todos'
                     ? 'Nenhum evento no momento'
                     : `Nenhum evento "${filtro}" encontrado`}
               </h3>
-              <p className="text-slate-500 text-sm max-w-md mx-auto">
+              <p className="text-slate-500 dark:text-slate-400 dark:text-slate-500 text-sm max-w-md mx-auto">
                 {filtro === 'Favoritos'
                   ? 'Clique no ícone de coração em qualquer campanha para salvá-la aqui e adicionar lembretes ao seu calendário facilmente.'
                   : filtro === 'Todos'
@@ -270,7 +272,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
 
   return (
     <div
-      className={`glass-panel rounded-2xl shadow-sm border border-slate-100 relative group hover:shadow-lg hover:border-slate-200 transition-all flex flex-col justify-between animate-slide-up stagger-${Math.min(
+      className={`glass-panel rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 relative group hover:shadow-lg hover:border-slate-200 dark:border-slate-700 transition-all flex flex-col justify-between animate-slide-up stagger-${Math.min(
         index + 1,
         6
       )}`}
@@ -278,7 +280,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
       <div>
         {/* Galeria de imagens */}
         {hasImages && (
-          <div className="relative h-48 overflow-hidden bg-slate-100 rounded-t-2xl">
+          <div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-800 rounded-t-2xl">
             <img
               src={evento.imagens[currentImg]}
               alt={evento.titulo}
@@ -298,7 +300,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
                     );
                   }}
                   aria-label="Imagem anterior"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
                 >
                   <ChevronLeft size={14} />
                 </button>
@@ -309,7 +311,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
                     setCurrentImg((prev) => (prev + 1) % evento.imagens.length);
                   }}
                   aria-label="Próxima imagem"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white text-slate-700 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
                 >
                   <ChevronRight size={14} />
                 </button>
@@ -325,7 +327,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
                       }}
                       aria-label={`Ver imagem ${i + 1} de ${evento.imagens.length}`}
                       aria-current={i === currentImg}
-                      className={`h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-white w-4' : 'bg-white/50 w-1.5'
+                      className={`h-1.5 rounded-full transition-all ${i === currentImg ? 'bg-white dark:bg-slate-900 w-4' : 'bg-white/50 w-1.5'
                         }`}
                     />
                   ))}
@@ -351,13 +353,13 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             aria-pressed={isFavorito}
             title={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
             className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${hasImages
-              ? 'bg-white/90 hover:bg-white text-slate-600 shadow-sm'
-              : 'mr-2 mt-2 bg-slate-100 hover:bg-slate-200 text-slate-600'
+              ? 'bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 dark:text-slate-600 shadow-sm'
+              : 'mr-2 mt-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-600'
               }`}
           >
             <Heart
               size={15}
-              className={isFavorito ? 'fill-rose-500 text-rose-500' : 'text-slate-400 hover:text-rose-500'}
+              className={isFavorito ? 'fill-rose-500 text-rose-500' : 'text-slate-400 dark:text-slate-500 hover:text-rose-500'}
             />
           </button>
 
@@ -391,16 +393,16 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-slate-800 leading-tight">{evento.titulo}</h2>
-            <p className="text-slate-600 mt-1.5 text-sm leading-relaxed">{evento.descricao}</p>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{evento.titulo}</h2>
+            <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 mt-1.5 text-sm leading-relaxed">{evento.descricao}</p>
 
             <div className="mt-3.5 flex flex-col gap-1.5">
-              <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+              <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 font-medium">
                 <Calendar size={15} className="text-blue-500 flex-shrink-0" />
                 <span>{evento.data_evento}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <MapPin size={15} className="text-slate-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500">
+                <MapPin size={15} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
                 <span>{evento.local_evento}</span>
               </div>
             </div>
@@ -409,7 +411,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
       </div>
 
       {/* Barra de Ações Inferior: Adicionar ao Calendário, Compartilhar, Favoritar */}
-      <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between gap-2 flex-wrap">
+      <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between gap-2 flex-wrap">
         {/* Botão de Adicionar ao Calendário (Google Calendar / ICS / Outlook) */}
         <AddToCalendarButton evento={evento} />
 
@@ -434,7 +436,7 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             aria-label={isFavorito ? 'Remover dos favoritos' : 'Favoritar campanha'}
             className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs transition-colors ${isFavorito
               ? 'bg-rose-50 text-rose-700 border border-rose-200'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+              : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-slate-700'
               }`}
             title={isFavorito ? 'Campanha salva nos favoritos' : 'Salvar nos favoritos'}
           >

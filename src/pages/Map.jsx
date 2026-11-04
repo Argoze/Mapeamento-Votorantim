@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 're
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
+import { Link } from 'react-router-dom';
 import {
   Building2,
   Filter,
@@ -10,11 +11,18 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  Sparkles,
+  Megaphone,
+  Newspaper,
+  Navigation,
+  ArrowRight,
+  Clock,
+  Calendar,
+  Search,
+  Syringe,
+  Zap,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import NewsCarousel from '../components/NewsCarousel';
 import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
@@ -150,6 +158,7 @@ function saveFavoritos(ids) {
   try {
     localStorage.setItem(FAVORITOS_KEY, JSON.stringify(ids));
   } catch {
+    // Modo privado/restrito: localStorage pode não estar disponível.
   }
 }
 
@@ -231,6 +240,17 @@ function buildWhatsAppShareUrl(unidade) {
   return `https://wa.me/?text=${encodeURIComponent(texto)}`;
 }
 
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `há ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `há ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `há ${days} dia(s)`;
+  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
 // Componente auxiliar para ajustar o mapa
 function MapController({ center, zoom, deslocarComPainel }) {
   const map = useMap();
@@ -261,6 +281,7 @@ export default function Map() {
   const [userLocation, setUserLocation] = useState(null);
   const [unidadesProximas, setUnidadesProximas] = useState([]);
   const [noticias, setNoticias] = useState([]);
+  const [eventosDestaque, setEventosDestaque] = useState([]);
 
   // Busca Inteligente por Intenção (sintomas, necessidades, linguagem leiga)
   const [intencaoTexto, setIntencaoTexto] = useState('');
@@ -291,8 +312,23 @@ export default function Map() {
         .limit(10);
       if (data) setNoticias(data);
     }
+    async function fetchEventosDestaque() {
+      const { data } = await supabase
+        .from('eventos')
+        .select('*')
+        .eq('status', 'publicado')
+        .order('criado_em', { ascending: false })
+        .limit(6);
+      if (data) {
+        const agora = Date.now();
+        setEventosDestaque(
+          data.filter((e) => !e.publicar_em || new Date(e.publicar_em).getTime() <= agora).slice(0, 3)
+        );
+      }
+    }
     fetchUnidades();
     fetchNoticias();
+    fetchEventosDestaque();
     registrarPaginaVista('/');
   }, []);
 
@@ -482,49 +518,191 @@ export default function Map() {
         : [];
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden bg-slate-50">
+    <div className="min-h-screen relative overflow-x-hidden bg-slate-50 dark:bg-slate-950">
       <a href="#conteudo-principal" className="skip-link">
         Pular para o conteúdo principal
       </a>
       <Navbar />
 
-      {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50 via-blue-50/50 to-transparent -z-10" />
+      {/* ===== Hero ===== */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 pt-28 pb-14 sm:pt-32 sm:pb-16">
+        <div className="absolute top-[-10%] right-[-5%] w-[380px] h-[380px] bg-indigo-200/30 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
-        {/* Header */}
-        <header className="mb-6 animate-slide-up">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 mb-2">
-            <span className="text-gradient">Saúde Votorantim</span>
-          </h1>
-          <p className="text-slate-500 text-base sm:text-lg max-w-2xl">
-            Guia inteligente da rede municipal de saúde. Diga o que precisa ou digite seu endereço para encontrar a unidade ideal.
-          </p>
-        </header>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-8 items-center">
+            {/* Coluna da esquerda: texto + busca */}
+            <div className="text-center lg:text-left">
+              <span className="inline-flex items-center gap-2 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-slide-down">
+                <Megaphone size={13} /> Bem-vindo(a) a Votorantim!
+              </span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 leading-[1.05] mb-4 animate-slide-up">
+                Sua cidade,<br className="hidden sm:block" />{' '}
+                <span className="text-gradient">mais perto</span> de você.
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 mb-7 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                Diga o que você precisa ou informe seu endereço. A gente mostra a unidade de saúde (ou outro serviço público) ideal, em segundos.
+              </p>
 
-        {/* News Carousel */}
-        {noticias.length > 0 && <NewsCarousel noticias={noticias} />}
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
+                className="flex flex-col sm:flex-row items-stretch gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 shadow-lg shadow-indigo-900/5 max-w-xl mx-auto lg:mx-0 mb-3 animate-slide-up"
+                style={{ animationDelay: '0.15s' }}
+              >
+                <div className="flex items-center gap-2 flex-1 px-3">
+                  <Search size={18} className="text-slate-400 flex-shrink-0" />
+                  <label htmlFor="busca-endereco-hero" className="sr-only">Buscar por endereço, bairro ou CEP</label>
+                  <input
+                    id="busca-endereco-hero"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Digite seu endereço, bairro ou CEP..."
+                    className="w-full py-2.5 bg-transparent text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-sm transition-colors flex-shrink-0"
+                >
+                  {loading ? 'Buscando...' : 'Buscar'}
+                </button>
+              </form>
+              {error && (
+                <p className="text-xs text-red-600 dark:text-red-400 mb-3 max-w-xl mx-auto lg:mx-0">{error}</p>
+              )}
 
-        {/* Painel Inteligente: Busca por Intenção + Endereço/Proximidade */}
+              <div className="flex flex-wrap justify-center lg:justify-start gap-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                {[
+                  { label: 'Vacinação', icon: Syringe, to: '/eventos' },
+                  { label: 'UBS', icon: Building2, onClick: () => { setTipoFiltro('UBS'); document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }); } },
+                  { label: 'Eventos', icon: Megaphone, to: '/eventos' },
+                  { label: 'Notícias', icon: Newspaper, to: '/noticias' },
+                  { label: 'Equipamentos próximos', icon: Navigation, onClick: handleGeolocation },
+                ].map((chip) => {
+                  const Icon = chip.icon;
+                  const conteudo = (
+                    <>
+                      <Icon size={14} /> {chip.label}
+                    </>
+                  );
+                  const cls = 'inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold px-3.5 py-2 rounded-full hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors';
+                  return chip.to ? (
+                    <Link key={chip.label} to={chip.to} className={cls}>{conteudo}</Link>
+                  ) : (
+                    <button key={chip.label} type="button" onClick={chip.onClick} className={cls}>{conteudo}</button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Coluna da direita: ilustração (sem foto real do município — composição gráfica própria) */}
+            <div className="relative hidden lg:block animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              <div className="relative rounded-[2.5rem] rounded-bl-none overflow-hidden aspect-[4/3] bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 shadow-2xl">
+                <svg viewBox="0 0 400 300" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+                  <circle cx="320" cy="60" r="38" fill="white" fillOpacity="0.15" />
+                  <rect x="40" y="140" width="46" height="130" fill="white" fillOpacity="0.18" rx="4" />
+                  <rect x="96" y="100" width="54" height="170" fill="white" fillOpacity="0.25" rx="4" />
+                  <rect x="160" y="160" width="40" height="110" fill="white" fillOpacity="0.15" rx="4" />
+                  <rect x="210" y="80" width="58" height="190" fill="white" fillOpacity="0.3" rx="4" />
+                  <rect x="278" y="130" width="48" height="140" fill="white" fillOpacity="0.2" rx="4" />
+                  <rect x="334" y="170" width="40" height="100" fill="white" fillOpacity="0.15" rx="4" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-24 w-24 rounded-3xl bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-xl animate-float">
+                    <Heart className="h-11 w-11 text-indigo-600" fill="currentColor" />
+                  </div>
+                </div>
+                <div className="absolute bottom-5 left-5 right-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-2xl p-3.5 shadow-lg flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">UBS Vila Garcia</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">a 850m de você</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 relative z-10">
+
+
+        {/* Acesso rápido + Vacinação em dia */}
+        <div className="grid lg:grid-cols-3 gap-5 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                <Zap size={16} />
+              </div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Acesso rápido</h2>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">O que você precisa, em poucos cliques</p>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              {[
+                { label: 'Campanhas de Vacinação', icon: Syringe, to: '/eventos' },
+                { label: 'Eventos na Cidade', icon: Megaphone, to: '/eventos' },
+                { label: 'Notícias', icon: Newspaper, to: '/noticias' },
+                { label: 'Buscar Equipamentos', icon: Building2, onClick: () => document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }) },
+                { label: 'Agendar Atendimento', icon: Calendar, onClick: () => { setTipoFiltro('UBS'); document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }); } },
+                { label: 'Cuidados com a Saúde', icon: Heart, to: '/noticias' },
+              ].map((item) => {
+                const Icon = item.icon;
+                const conteudo = (
+                  <>
+                    <div className="h-11 w-11 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <Icon size={18} />
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">{item.label}</span>
+                  </>
+                );
+                const className = 'group flex flex-col items-center gap-2 rounded-2xl p-2 hover:-translate-y-0.5 transition-all';
+                return item.to ? (
+                  <Link key={item.label} to={item.to} className={className}>{conteudo}</Link>
+                ) : (
+                  <button key={item.label} type="button" onClick={item.onClick} className={className}>{conteudo}</button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Vacinação em dia */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-700 to-indigo-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between text-white">
+            <div className="absolute -right-8 -bottom-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            <div className="relative">
+              <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center mb-3">
+                <Syringe size={18} />
+              </div>
+              <h3 className="text-lg font-extrabold mb-1">Vacinação em dia!</h3>
+              <p className="text-indigo-100 text-sm mb-5">Confira o calendário de vacinação e as campanhas ativas na cidade.</p>
+            </div>
+            <Link
+              to="/eventos"
+              className="relative inline-flex items-center gap-1.5 bg-white text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl w-fit hover:shadow-md transition-shadow"
+            >
+              Saiba mais <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        {/* Painel Inteligente: Busca por Intenção (sintomas/necessidades) — seção
+            própria, separada da busca por endereço (que já fica no hero). */}
         <IntentionSearchPanel
           intencaoTexto={intencaoTexto}
           setIntencaoTexto={setIntencaoTexto}
           intencaoAtiva={intencaoAtiva}
           onSelectIntencao={handleSelectIntencao}
           onClearIntencao={handleClearIntencao}
-          queryEndereco={query}
-          setQueryEndereco={setQuery}
-          onSearchEndereco={handleSearch}
-          onGeolocation={handleGeolocation}
-          loading={loading}
-          error={error}
           totalRecomendadas={unidadesFiltradas.length}
         />
 
         {/* Filtros por tipo + legenda de siglas */}
         <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="flex flex-wrap items-center gap-2">
-            <Filter size={16} className="text-slate-400 flex-shrink-0" />
+            <Filter size={16} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
             {FILTROS.map((f) => (
               <button
                 key={f}
@@ -535,8 +713,8 @@ export default function Map() {
                 }}
                 aria-pressed={tipoFiltro === f}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${tipoFiltro === f
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
                   }`}
               >
                 {f === 'Favoritos' && (
@@ -550,7 +728,7 @@ export default function Map() {
               onClick={() => setShowLegenda((v) => !v)}
               aria-expanded={showLegenda}
               aria-controls="legenda-siglas"
-              className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors px-2 py-2"
+              className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors px-2 py-2"
             >
               <Info size={14} />
               O que significa cada sigla?
@@ -561,7 +739,7 @@ export default function Map() {
           {showLegenda && (
             <div
               id="legenda-siglas"
-              className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white border border-slate-200 rounded-xl p-4 animate-slide-down"
+              className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 animate-slide-down"
             >
               {LEGENDA_TIPOS.map((item) => (
                 <div key={item.sigla} className="flex items-start gap-2">
@@ -573,8 +751,8 @@ export default function Map() {
                     {item.sigla}
                   </span>
                   <div>
-                    <p className="text-xs font-bold text-slate-700">{item.nome}</p>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{item.nome}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -584,7 +762,8 @@ export default function Map() {
 
         {/* Map + Sidebar */}
         <div
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in"
+          id="busca-unidades"
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in scroll-mt-24"
           style={{ animationDelay: '0.3s' }}
         >
           <div className="lg:col-span-2 glass-panel p-2 rounded-2xl shadow-lg border border-white/50 relative">
@@ -655,9 +834,9 @@ export default function Map() {
 
           {/* Sidebar */}
           <div className="glass-panel p-5 rounded-2xl shadow-lg border border-white/50 lg:col-span-1 h-[576px] flex flex-col">
-            <h2 className="text-base sm:text-lg font-bold text-slate-800 mb-3 border-b border-slate-100 pb-3 flex items-center justify-between gap-2 shrink-0">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2 truncate">
-                <Building2 size={18} className="text-blue-600 flex-shrink-0" />
+                <Building2 size={18} className="text-indigo-600 flex-shrink-0" />
                 <span className="truncate">
                   {intencaoAtiva && intencaoAtiva.matched
                     ? `Recomendadas (${listaSidebar.length})`
@@ -665,7 +844,7 @@ export default function Map() {
                 </span>
               </div>
               {intencaoAtiva && intencaoAtiva.matched && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex-shrink-0">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex-shrink-0">
                   {intencaoAtiva.emoji} {intencaoAtiva.tiposAlvo.join('/')}
                 </span>
               )}
@@ -677,12 +856,12 @@ export default function Map() {
               ) : listaSidebar.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="text-4xl mb-3 animate-float">🗺️</div>
-                  <p className="text-slate-600 text-sm font-semibold mb-1">
+                  <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-sm font-semibold mb-1">
                     {tipoFiltro !== 'Todos'
                       ? `Nenhuma unidade com o filtro "${tipoFiltro}".`
                       : 'Nenhuma unidade encontrada.'}
                   </p>
-                  <p className="text-slate-400 text-xs">
+                  <p className="text-slate-400 dark:text-slate-500 text-xs">
                     Digite o que precisa no campo acima ou informe seu endereço para ver as unidades mais próximas.
                   </p>
                 </div>
@@ -690,7 +869,7 @@ export default function Map() {
                 <div className="flex flex-col gap-3">
                   {/* Dica de proximidade se o usuário ainda não buscou endereço */}
                   {unidadesProximas.length === 0 && intencaoAtiva && (
-                    <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 text-[11px] text-blue-700 leading-snug">
+                    <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-2.5 text-[11px] text-indigo-700 leading-snug">
                       💡 Digite seu endereço ou clique em <strong>Minha Localização</strong> para ordenar por distância.
                     </div>
                   )}
@@ -712,7 +891,7 @@ export default function Map() {
                           } de distância`
                           : ''
                           }`}
-                        className={`p-3.5 bg-white border border-slate-100 rounded-xl hover:shadow-md hover:border-blue-200 transition-all cursor-pointer animate-slide-up stagger-${Math.min(
+                        className={`p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer animate-slide-up stagger-${Math.min(
                           index + 1,
                           6
                         )}`}
@@ -733,13 +912,13 @@ export default function Map() {
                             >
                               {unitType.label}
                             </span>
-                            <h3 className="font-bold text-slate-800 text-sm truncate">{u.nome}</h3>
+                            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{u.nome}</h3>
                           </div>
                           {hasDistancia && (
                             <span
                               className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${index === 0
                                 ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-slate-100 text-slate-600'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-600'
                                 }`}
                             >
                               {u.distancia < 1
@@ -748,7 +927,7 @@ export default function Map() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500">{u.endereco}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{u.endereco}</p>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           {hasDistancia && index === 0 ? (
                             <span className="inline-block text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -763,7 +942,7 @@ export default function Map() {
                               e.stopPropagation();
                               toggleFavorito(u.id);
                             }}
-                            className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                            className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors flex-shrink-0"
                             title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
                             aria-label={
                               isFavorito
@@ -786,6 +965,89 @@ export default function Map() {
             </div>
           </div>
         </div>
+
+        {/* Notícias & Eventos em destaque */}
+        {(noticias.length > 0 || eventosDestaque.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+            {/* Notícias */}
+            <div className="glass-panel rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <div className="h-8 w-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                    <Newspaper size={16} />
+                  </div>
+                  Notícias
+                </h2>
+                <Link to="/noticias" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Ver todas <ArrowRight size={13} />
+                </Link>
+              </div>
+              {noticias.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 py-6 text-center">Nenhuma notícia publicada ainda.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {noticias.slice(0, 3).map((n) => (
+                    <Link
+                      key={n.id}
+                      to="/noticias"
+                      className="flex items-center gap-3 py-3 group first:pt-0 last:pb-0"
+                    >
+                      {n.imagem_url ? (
+                        <img src={n.imagem_url} alt="" className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="h-14 w-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                          <Newspaper size={18} className="text-slate-300 dark:text-slate-600" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-700 transition-colors">{n.titulo}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Clock size={11} /> {timeAgo(n.criado_em)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Eventos */}
+            <div className="glass-panel rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <div className="h-8 w-8 bg-cyan-100 rounded-lg flex items-center justify-center text-cyan-600">
+                    <Megaphone size={16} />
+                  </div>
+                  Eventos
+                </h2>
+                <Link to="/eventos" className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  Ver todos <ArrowRight size={13} />
+                </Link>
+              </div>
+              {eventosDestaque.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500 py-6 text-center">Nenhum evento no momento.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {eventosDestaque.map((ev) => (
+                    <Link
+                      key={ev.id}
+                      to="/eventos"
+                      className="flex items-center gap-3 py-3 group first:pt-0 last:pb-0"
+                    >
+                      <div className={`h-14 w-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${ev.tipo === 'Urgente' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-700 transition-colors">{ev.titulo}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{ev.local_evento}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />
