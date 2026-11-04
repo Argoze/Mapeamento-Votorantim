@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Heart, MapPin, Newspaper, Megaphone, LogIn } from 'lucide-react';
+import { Heart, MapPin, Newspaper, Megaphone } from 'lucide-react';
 
 export default function Footer() {
   const links = [
     { to: '/', label: 'Mapa de unidades', icon: MapPin },
     { to: '/eventos', label: 'Campanhas', icon: Megaphone },
     { to: '/noticias', label: 'Notícias', icon: Newspaper },
-    { to: '/login', label: 'Acesso restrito', icon: LogIn },
   ];
 
   return (

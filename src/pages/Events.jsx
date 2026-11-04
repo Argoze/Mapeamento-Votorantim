@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
   ShieldAlert,
@@ -130,27 +129,16 @@ export default function Events() {
         <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div className="animate-slide-up">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
-                  <Megaphone className="h-5 w-5 text-white" />
-                </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Alertas e Campanhas</h1>
+          <div className="animate-slide-up">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
+                <Megaphone className="h-5 w-5 text-white" />
               </div>
-              <p className="text-indigo-100 text-base sm:text-lg max-w-xl">
-                Fique por dentro dos mutirões e eventos de saúde em Votorantim. Adicione lembretes direto ao seu calendário!
-              </p>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Alertas e Campanhas</h1>
             </div>
-
-            <Link
-              to="/login"
-              className="bg-white dark:bg-slate-900 hover:bg-indigo-50 text-indigo-700 font-bold py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center gap-2 hover:shadow-lg text-sm whitespace-nowrap animate-slide-up"
-              style={{ animationDelay: '0.05s' }}
-            >
-              <span className="text-lg">+</span>
-              Novo evento
-            </Link>
+            <p className="text-indigo-100 text-base sm:text-lg max-w-xl">
+              Fique por dentro dos mutirões e eventos de saúde em Votorantim. Adicione lembretes direto ao seu calendário!
+            </p>
           </div>
         </div>
       </section>
@@ -263,7 +251,9 @@ export default function Events() {
 // Card de Evento
 function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
   const [currentImg, setCurrentImg] = useState(0);
+  const [descExpandida, setDescExpandida] = useState(false);
   const hasImages = evento.imagens && evento.imagens.length > 0;
+  const descricaoLonga = (evento.descricao || '').length > 140;
 
   const buildWhatsAppShareUrl = () => {
     const text = `*${evento.titulo}*\n📅 *Data:* ${evento.data_evento || 'Consulte detalhes'}\n📍 *Local:* ${evento.local_evento || 'Votorantim'}\n\nSaiba mais no Portal de Saúde de Votorantim: ${window.location.origin}/eventos`;
@@ -284,6 +274,8 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
             <img
               src={evento.imagens[currentImg]}
               alt={evento.titulo}
+              loading={index < 2 ? 'eager' : 'lazy'}
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -394,7 +386,24 @@ function EventCard({ evento, index, isNew, isFavorito, onToggleFavorito }) {
           )}
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">{evento.titulo}</h2>
-            <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 mt-1.5 text-sm leading-relaxed">{evento.descricao}</p>
+            <p
+              className={`text-slate-600 dark:text-slate-300 mt-1.5 text-sm leading-relaxed ${descExpandida ? '' : 'line-clamp-3'
+                }`}
+            >
+              {evento.descricao}
+            </p>
+            {descricaoLonga && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDescExpandida((v) => !v);
+                }}
+                className="mt-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+              >
+                {descExpandida ? 'Ver menos' : 'Ver mais'}
+              </button>
+            )}
 
             <div className="mt-3.5 flex flex-col gap-1.5">
               <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 font-medium">

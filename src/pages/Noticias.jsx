@@ -1,342 +1,131 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-import { Newspaper, Clock, Eye, ArrowLeft, Search, ChevronLeft, ChevronRight, Image } from 'lucide-react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
-import AccessibilityToolbar from '../components/AccessibilityToolbar';
-import { onActivateKey } from '../lib/a11y';
-import { registrarPaginaVista } from '../lib/metricas';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
-function timeAgo(dateStr) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `há ${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `há ${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `há ${days} dia(s)`;
-  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function NoticiaCardSkeleton() {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm">
-      <div className="h-48 animate-shimmer" />
-      <div className="p-5 space-y-3">
-        <div className="h-4 w-24 rounded-lg animate-shimmer" />
-        <div className="h-5 w-full rounded-lg animate-shimmer" />
-        <div className="h-4 w-3/4 rounded-lg animate-shimmer" />
-      </div>
-    </div>
-  );
-}
-
-function NoticiaImageGallery({ noticia }) {
-  const [currentImg, setCurrentImg] = useState(0);
-  const hasImages = noticia.imagens && noticia.imagens.length > 0;
-
-  if (!hasImages && !noticia.imagem_url) return null;
-
-  if (!hasImages || noticia.imagens.length === 1) {
-    return (
-      <img
-        src={hasImages ? noticia.imagens[0] : noticia.imagem_url}
-        alt={noticia.titulo}
-        className="w-full h-[300px] sm:h-[450px] object-cover border-b border-slate-100 dark:border-slate-800"
-      />
-    );
-  }
-
-  return (
-    <div className="relative h-[300px] sm:h-[450px] overflow-hidden group border-b border-slate-100 dark:border-slate-800">
-      <img
-        src={noticia.imagens[currentImg]}
-        alt={`${noticia.titulo} - ${currentImg + 1}`}
-        className="w-full h-full object-cover transition-all duration-500"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-
-      {/* Navigation Arrows */}
-      <button
-        onClick={() => setCurrentImg(prev => (prev - 1 + noticia.imagens.length) % noticia.imagens.length)}
-        aria-label="Imagem anterior"
-        className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
-      >
-        <ChevronLeft size={20} />
-      </button>
-      <button
-        onClick={() => setCurrentImg(prev => (prev + 1) % noticia.imagens.length)}
-        aria-label="Próxima imagem"
-        className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 bg-white/80 hover:bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-95"
-      >
-        <ChevronRight size={20} />
-      </button>
-
-      {/* Dots Indicator */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/30 backdrop-blur-sm px-3.5 py-2 rounded-full">
-        {noticia.imagens.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentImg(i)}
-            aria-label={`Ver imagem ${i + 1} de ${noticia.imagens.length}`}
-            aria-current={i === currentImg}
-            className={`h-2 rounded-full transition-all duration-300 ${i === currentImg ? 'bg-white dark:bg-slate-900 w-5' : 'bg-white/50 w-2 hover:bg-white/85'}`}
-          />
-        ))}
-      </div>
-
-      {/* Number Pill Counter */}
-      <span className="absolute top-4 left-4 text-xs font-bold bg-black/60 text-white px-3 py-1.5 rounded-full flex items-center gap-1 backdrop-blur-sm shadow-md">
-        <Image size={12} /> {currentImg + 1}/{noticia.imagens.length}
-      </span>
-    </div>
-  );
-}
-
-export default function Noticias() {
-  const [noticias, setNoticias] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedNoticia, setSelectedNoticia] = useState(null);
-  const [busca, setBusca] = useState('');
-
-  useEffect(() => {
-    async function fetchNoticias() {
-      const { data, error } = await supabase
-        .from('noticias')
-        .select('*')
-        .eq('status', 'publicado')
-        .order('criado_em', { ascending: false });
-
-      if (error) {
-        console.error('Erro ao carregar notícias', error);
-      } else {
-        setNoticias(data || []);
-      }
-      setLoading(false);
-    }
-    fetchNoticias();
-    registrarPaginaVista('/noticias');
-  }, []);
-
-  const noticiasFiltradas = busca
-    ? noticias.filter(n =>
-      n.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-      n.resumo.toLowerCase().includes(busca.toLowerCase())
-    )
-    : noticias;
-
-  const destaque = noticiasFiltradas.find(n => n.destaque);
-  const demais = noticiasFiltradas.filter(n => n.id !== destaque?.id);
-
-  // Detail view
-  if (selectedNoticia) {
-    return (
-      <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
-        <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
-        <Navbar />
-        <main id="conteudo-principal" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
-          <button
-            onClick={() => setSelectedNoticia(null)}
-            className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 mb-6 transition-colors animate-slide-down"
-          >
-            <ArrowLeft size={16} />
-            Voltar para notícias
-          </button>
-
-          <article className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-800 animate-fade-in">
-            <NoticiaImageGallery noticia={selectedNoticia} />
-            <div className="p-6 sm:p-10">
-              <div className="flex items-center gap-3 mb-4">
-                {selectedNoticia.destaque && (
-                  <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    ⭐ Destaque
-                  </span>
-                )}
-                <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                  <Clock size={12} />
-                  {timeAgo(selectedNoticia.criado_em)}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 mb-4 leading-tight">
-                {selectedNoticia.titulo}
-              </h1>
-              <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-lg font-medium mb-6 border-l-4 border-indigo-500 pl-4">
-                {selectedNoticia.resumo}
-              </p>
-              {selectedNoticia.conteudo && (
-                <div className="prose prose-slate max-w-none text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
-                  {selectedNoticia.conteudo}
-                </div>
-              )}
-            </div>
-          </article>
-        </main>
-        <Footer />
-        <AccessibilityToolbar />
-      </div>
-    );
-  }
-
-  return (
-    <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
-      <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
-      <Navbar />
-
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 pt-28 pb-16 sm:pt-32 sm:pb-20">
-        <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 mb-3 animate-slide-up">
-            <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
-              <Newspaper className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Notícias</h1>
-          </div>
-          <p className="text-indigo-100 text-base sm:text-lg max-w-2xl animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            Fique por dentro das novidades da saúde em Votorantim.
-          </p>
-        </div>
-      </section>
-
-      <main id="conteudo-principal" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-10 relative z-10">
-        {/* Busca */}
-        <div className="mb-6 flex justify-end animate-slide-up">
-          <div className="relative w-full sm:w-80">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-            <label htmlFor="busca-noticias" className="sr-only">Buscar notícia</label>
-            <input
-              id="busca-noticias"
-              type="text"
-              placeholder="Buscar notícia..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-md"
-            />
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="md:col-span-2 lg:col-span-3"><NoticiaCardSkeleton /></div>
-            <NoticiaCardSkeleton />
-            <NoticiaCardSkeleton />
-            <NoticiaCardSkeleton />
-          </div>
-        ) : noticiasFiltradas.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-scale-in">
-            <div className="text-5xl mb-4 animate-float">📰</div>
-            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">
-              {busca ? 'Nenhuma notícia encontrada' : 'Nenhuma notícia publicada'}
-            </h3>
-            <p className="text-slate-500 dark:text-slate-400 dark:text-slate-500 text-sm">
-              {busca ? 'Tente buscar por outro termo.' : 'Aguarde novas publicações da equipe de saúde.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Destaque */}
-            {destaque && (
-              <div
-                onClick={() => setSelectedNoticia(destaque)}
-                role="button"
-                tabIndex={0}
-                aria-label={`Ler notícia em destaque: ${destaque.titulo}`}
-                onKeyDown={onActivateKey(() => setSelectedNoticia(destaque))}
-                className="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-100 dark:border-slate-800 cursor-pointer group hover:shadow-xl transition-all animate-slide-up"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2">
-                  {destaque.imagem_url ? (
-                    <img
-                      src={destaque.imagem_url}
-                      alt={destaque.titulo}
-                      className="w-full h-[250px] md:h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="w-full h-[250px] md:h-full bg-gradient-to-br from-indigo-500 via-indigo-600 to-cyan-500 flex items-center justify-center">
-                      <Newspaper size={60} className="text-white/30" />
-                    </div>
-                  )}
-                  <div className="p-6 sm:p-8 flex flex-col justify-center">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                        ⭐ Destaque
-                      </span>
-                      <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                        <Clock size={12} />
-                        {timeAgo(destaque.criado_em)}
-                      </span>
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-50 mb-3 leading-tight group-hover:text-indigo-700 transition-colors">
-                      {destaque.titulo}
-                    </h2>
-                    <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-sm leading-relaxed line-clamp-3 mb-4">
-                      {destaque.resumo}
-                    </p>
-                    <span className="text-indigo-600 text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
-                      Ler mais <ArrowLeft size={14} className="rotate-180" />
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Grid de notícias */}
-            {demais.length > 0 && (
-              <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Últimas Notícias</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {demais.map((noticia, index) => (
-                    <div
-                      key={noticia.id}
-                      onClick={() => setSelectedNoticia(noticia)}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Ler notícia: ${noticia.titulo}`}
-                      onKeyDown={onActivateKey(() => setSelectedNoticia(noticia))}
-                      className={`glass-panel rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800 cursor-pointer group hover:shadow-lg hover:border-slate-200 dark:border-slate-700 transition-all animate-slide-up stagger-${Math.min(index + 1, 6)}`}
-                    >
-                      {noticia.imagem_url ? (
-                        <div className="overflow-hidden h-48">
-                          <img
-                            src={noticia.imagem_url}
-                            alt={noticia.titulo}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                          <Newspaper size={40} className="text-slate-300 dark:text-slate-600" />
-                        </div>
-                      )}
-                      <div className="p-5">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                            <Clock size={11} />
-                            {timeAgo(noticia.criado_em)}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-slate-800 dark:text-slate-100 leading-tight mb-2 line-clamp-2 group-hover:text-indigo-700 transition-colors">
-                          {noticia.titulo}
-                        </h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-500 line-clamp-2">
-                          {noticia.resumo}
-                        </p>
-                        <span className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-indigo-600 group-hover:gap-2 transition-all">
-                          <Eye size={12} /> Ler mais
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      <Footer />
-      <AccessibilityToolbar />
-    </div>
-  );
-}
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: [
+        'favicon.svg',
+        'icons.svg',
+        'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+      ],
+      manifest: {
+        name: 'Mapeamento Votorantim',
+        short_name: 'Saúde Votorantim',
+        description: 'Mapeamento interativo da rede municipal de saúde e serviços públicos de Votorantim',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#2563eb',
+        icons: [
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+        ],
+      },
+      workbox: {
+        // Precache de todos os arquivos estáticos gerados no build
+        // Precache de todos os arquivos estáticos gerados no build, exceto os
+        // pedaços usados só pela equipe interna (painel /admin, /saude e a
+        // lib de exportação de planilhas, que sozinha pesa quase 1MB). Esses
+        // continuam funcionando normalmente — só não são baixados em segundo
+        // plano por todo cidadão que visita o mapa, e sim sob demanda quando
+        // alguém de fato acessa essas telas.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        globIgnores: ['**/Admin-*.js', '**/Saude-*.js', '**/exceljs*.js', '**/CampanhaTemplateBar-*.js'],
+        runtimeCaching: [
+          // 1. Cache dos dados de leitura do Supabase (GET) - StaleWhileRevalidate (24h)
+          // NÃO cacheia POST/PATCH/DELETE nem chamadas de autenticação (/auth/v1/*)
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            method: 'GET',
+            options: {
+              cacheName: 'supabase-data-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 24 * 60 * 60, // 24 horas
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // 2. Cache dos tiles do mapa (CARTO e OpenStreetMap) - CacheFirst (~30 dias, máx 200)
+          {
+            urlPattern: /^https:\/\/(?:.*\.basemaps\.cartocdn\.com|.*\.tile\.openstreetmap\.org)\/.*$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles-cache',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // ~30 dias
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // 3. Marcadores e estilos externos do Leaflet (CDN)
+          {
+            urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/leaflet\/.*$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'leaflet-assets-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 30 * 24 * 60 * 60,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // 4. Fontes do Google (Inter)
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 365 * 24 * 60 * 60,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
+    }),
+  ],
+});

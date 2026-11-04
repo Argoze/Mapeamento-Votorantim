@@ -739,7 +739,7 @@ export default function Saude() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             {noticia.imagem_url && (
-                              <img src={noticia.imagem_url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                              <img src={noticia.imagem_url} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">

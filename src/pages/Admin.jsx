@@ -20,7 +20,15 @@ import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
 import AdminSidebar from '../components/AdminSidebar';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
-import { csvUnidades, csvEventos, csvNoticias, csvCorrecoes, csvAuditoria, csvMetricas, baixarCsv, nomeArquivoComData } from '../lib/exportarDados';
+import {
+  COLUNAS_UNIDADES,
+  COLUNAS_EVENTOS,
+  COLUNAS_NOTICIAS,
+  COLUNAS_CORRECOES,
+  COLUNAS_AUDITORIA,
+  COLUNAS_METRICAS,
+} from '../lib/exportarDados';
+import { baixarPlanilhaUnica, baixarPlanilhaCompleta, nomeArquivoXlsxComData } from '../lib/exportarPlanilha';
 
 function tempoRelativo(dataStr) {
   const diff = Date.now() - new Date(dataStr).getTime();
@@ -179,6 +187,10 @@ export default function Admin() {
 
   // Toast
   const [toast, setToast] = useState(null);
+
+  // Exportação de planilhas: guarda a chave em exportação (ou '__tudo__') pra
+  // desabilitar o botão certo e mostrar "Gerando..." enquanto a lib carrega.
+  const [exportandoChave, setExportandoChave] = useState(null);
 
   // Active panel for mobile
   const [activePanel, setActivePanel] = useState('dashboard');
@@ -826,16 +838,16 @@ export default function Admin() {
     URL.revokeObjectURL(url);
   };
 
-  // ---------- Exportação em massa (CSV) ----------
-  // Caminho inverso da importação em massa: gera um CSV de cada tabela
-  // principal, pra relatório pra Prefeitura ou backup manual rápido.
+  // ---------- Exportação em massa (XLSX) ----------
+  // Caminho inverso da importação em massa: gera uma planilha formatada de
+  // cada tabela principal, pra relatório pra Prefeitura ou backup manual.
   const EXPORT_CONFIG = {
-    unidades: { label: 'Unidades', dados: adminUnidades, gerar: csvUnidades },
-    eventos: { label: 'Eventos e campanhas', dados: eventos, gerar: csvEventos },
-    noticias: { label: 'Notícias', dados: noticias, gerar: csvNoticias },
-    correcoes: { label: 'Correções do cidadão', dados: correcoes, gerar: csvCorrecoes },
-    auditoria: { label: 'Trilha de auditoria', dados: auditoria, gerar: csvAuditoria },
-    metricas: { label: 'Métricas de uso (analytics)', dados: metricas, gerar: csvMetricas },
+    unidades: { label: 'Unidades', dados: adminUnidades, colunas: COLUNAS_UNIDADES },
+    eventos: { label: 'Eventos e campanhas', dados: eventos, colunas: COLUNAS_EVENTOS },
+    noticias: { label: 'Notícias', dados: noticias, colunas: COLUNAS_NOTICIAS },
+    correcoes: { label: 'Correções do cidadão', dados: correcoes, colunas: COLUNAS_CORRECOES },
+    auditoria: { label: 'Trilha de auditoria', dados: auditoria, colunas: COLUNAS_AUDITORIA },
+    metricas: { label: 'Métricas de uso (analytics)', dados: metricas, colunas: COLUNAS_METRICAS },
   };
 
   // ---------- Analytics de uso: agregações calculadas a partir de "metricas" ----------
@@ -895,15 +907,50 @@ export default function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metricas]);
 
-  const handleExportarCsv = (chave) => {
+  const handleExportarPlanilha = async (chave) => {
     const config = EXPORT_CONFIG[chave];
     if (!config) return;
     if (!config.dados || config.dados.length === 0) {
       setToast({ message: `Não há dados de "${config.label}" para exportar ainda.`, type: 'error' });
       return;
     }
-    baixarCsv(nomeArquivoComData(chave), config.gerar(config.dados));
-    setToast({ message: `${config.label}: CSV com ${config.dados.length} registro(s) baixado.`, type: 'success' });
+    setExportandoChave(chave);
+    try {
+      await baixarPlanilhaUnica(
+        nomeArquivoXlsxComData(chave),
+        config.label,
+        config.dados,
+        config.colunas
+      );
+      setToast({ message: `${config.label}: planilha com ${config.dados.length} registro(s) baixada.`, type: 'success' });
+    } catch (err) {
+      console.error('Erro ao exportar planilha', err);
+      setToast({ message: 'Não foi possível gerar a planilha. Tente novamente.', type: 'error' });
+    } finally {
+      setExportandoChave(null);
+    }
+  };
+
+  const handleExportarTudo = async () => {
+    const abas = Object.values(EXPORT_CONFIG)
+      .filter((config) => config.dados && config.dados.length > 0)
+      .map((config) => ({ nome: config.label, linhas: config.dados, colunas: config.colunas }));
+
+    if (abas.length === 0) {
+      setToast({ message: 'Ainda não há dados em nenhuma tabela para exportar.', type: 'error' });
+      return;
+    }
+
+    setExportandoChave('__tudo__');
+    try {
+      await baixarPlanilhaCompleta(nomeArquivoXlsxComData('votorantim_saude_dados_completos'), abas);
+      setToast({ message: `Planilha completa baixada com ${abas.length} aba(s).`, type: 'success' });
+    } catch (err) {
+      console.error('Erro ao exportar todos os dados', err);
+      setToast({ message: 'Não foi possível gerar a planilha completa. Tente novamente.', type: 'error' });
+    } finally {
+      setExportandoChave(null);
+    }
   };
 
   const handleConfirmarImportacao = async () => {
@@ -1981,7 +2028,7 @@ export default function Admin() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1 min-w-0">
                               {noticia.imagem_url && (
-                                <img src={noticia.imagem_url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                                <img src={noticia.imagem_url} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
@@ -2747,7 +2794,7 @@ export default function Admin() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 flex-1 min-w-0">
                               {unidade.imagens && unidade.imagens.length > 0 ? (
-                                <img src={unidade.imagens[0]} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                                <img src={unidade.imagens[0]} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                               ) : (
                                 <div className="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 flex-shrink-0">
                                   <Building2 size={24} />
@@ -2867,7 +2914,7 @@ export default function Admin() {
                         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
                           <div className="flex items-start gap-3">
                             {unidadePendenteCompletar.imagens && unidadePendenteCompletar.imagens.length > 0 ? (
-                              <img src={unidadePendenteCompletar.imagens[0]} alt="" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
+                              <img src={unidadePendenteCompletar.imagens[0]} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
                             ) : (
                               <div className="w-16 h-16 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 flex-shrink-0">
                                 <Building2 size={26} />
@@ -3465,14 +3512,25 @@ export default function Admin() {
             {activePanel === 'exportar' && (
               <div className="animate-fade-in">
                 <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                    <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center">
-                      <Download className="text-teal-600" size={20} />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center">
+                        <Download className="text-teal-600" size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800">Exportar Dados</h2>
+                        <p className="text-sm text-slate-500">Baixe qualquer tabela como planilha XLSX formatada — abre direto no Excel/Google Sheets. Útil pra relatório pra Prefeitura ou backup manual rápido.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-800">Exportar Dados</h2>
-                      <p className="text-sm text-slate-500">Baixe qualquer tabela como CSV — abre direto no Excel/Google Sheets. Útil pra relatório pra Prefeitura ou backup manual rápido.</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleExportarTudo}
+                      disabled={exportandoChave !== null}
+                      className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold transition-colors shadow-sm"
+                    >
+                      <Download size={14} />
+                      {exportandoChave === '__tudo__' ? 'Gerando planilha...' : 'Exportar todos os dados'}
+                    </button>
                   </div>
 
                   <div className="space-y-3">
@@ -3489,18 +3547,18 @@ export default function Admin() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleExportarCsv(chave)}
-                          disabled={config.dados.length === 0}
+                          onClick={() => handleExportarPlanilha(chave)}
+                          disabled={config.dados.length === 0 || exportandoChave !== null}
                           className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600 text-white text-xs font-bold transition-colors"
                         >
-                          <Download size={14} /> Baixar CSV
+                          <Download size={14} /> {exportandoChave === chave ? 'Gerando...' : 'Baixar XLSX'}
                         </button>
                       </div>
                     ))}
                   </div>
 
                   <p className="text-xs text-slate-400 mt-5">
-                    O CSV de "Unidades" usa as mesmas colunas reconhecidas pela importação em massa (Nome, Endereço, Categoria, Latitude, Longitude, Telefone) — pode editar numa planilha e reimportar depois, se precisar.
+                    A planilha de "Unidades" usa as mesmas colunas reconhecidas pela importação em massa (Nome, Endereço, Categoria, Latitude, Longitude, Telefone) — pode editar os dados e reimportar depois (salvando como CSV), se precisar. "Exportar todos os dados" baixa um único arquivo XLSX com uma aba para cada tabela.
                   </p>
                 </div>
               </div>

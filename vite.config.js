@@ -45,8 +45,14 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache de todos os arquivos estáticos gerados no build
+        // Precache de todos os arquivos estáticos gerados no build, exceto os
+        // pedaços usados só pela equipe interna (painel /admin, /saude e a
+        // lib de exportação de planilhas, que sozinha pesa quase 1MB). Esses
+        // continuam funcionando normalmente — só não são baixados em segundo
+        // plano por todo cidadão que visita o mapa, e sim sob demanda quando
+        // alguém de fato acessa essas telas.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        globIgnores: ['**/Admin-*.js', '**/Saude-*.js', '**/exceljs*.js', '**/CampanhaTemplateBar-*.js'],
         runtimeCaching: [
           // 1. Cache dos dados de leitura do Supabase (GET) - StaleWhileRevalidate (24h)
           // NÃO cacheia POST/PATCH/DELETE nem chamadas de autenticação (/auth/v1/*)
@@ -121,4 +127,10 @@ export default defineConfig({
       },
     }),
   ],
+  optimizeDeps: {
+    exclude: [
+      '@tailwindcss/oxide',
+      '@tailwindcss/oxide-win32-x64-msvc'
+    ]
+  }
 });

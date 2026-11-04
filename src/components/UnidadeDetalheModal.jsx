@@ -79,6 +79,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           <img
             src={imagens[imagemAtiva]}
             alt={unidade.nome}
+            decoding="async"
             className="w-full h-44 sm:h-40 object-cover rounded-t-2xl"
           />
           {temVariasImagens && (
@@ -181,7 +182,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
           </a>
           {unidade.telefone ? (
             <a
-              href={`tel:${unidade.telefone}`}
+              href={`tel:${unidade.telefone.replace(/[^\d+]/g, '')}`}
               className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-sm transition-colors"
             >
               <Phone size={16} />

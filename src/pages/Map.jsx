@@ -36,8 +36,23 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Os ícones dos marcadores só dependem de (cor, emoji) — existe um número
+// pequeno e fixo de combinações possíveis (um por tipo de unidade). Sem
+// cache, o Leaflet recriava um L.divIcon novo pra CADA marcador em TODO
+// re-render do mapa (troca de filtro, favorito, seleção...), o que pesava
+// bastante com várias dezenas de unidades no mapa. Com o cache, o mesmo
+// ícone (mesmo objeto) é reaproveitado entre renders.
+// Atenção: este módulo também exporta um componente chamado "Map" (a
+// página em si) — usar `new Map()` aqui colidiria com esse nome (hoisted
+// no escopo do módulo) em vez do Map nativo do JS. Por isso o cache usa um
+// objeto simples, não um Map/hashmap.
+const iconCache = {};
+
 function createCustomIcon(color, emoji) {
-  return L.divIcon({
+  const chave = `${color}|${emoji}`;
+  if (iconCache[chave]) return iconCache[chave];
+
+  const icon = L.divIcon({
     className: 'custom-marker',
     html: `<div style="
       width: 36px; height: 36px;
@@ -52,21 +67,28 @@ function createCustomIcon(color, emoji) {
     iconAnchor: [18, 36],
     popupAnchor: [0, -36],
   });
+  iconCache[chave] = icon;
+  return icon;
 }
 
+let selectedIconSingleton = null;
+
 function createSelectedIcon() {
-  return L.divIcon({
-    className: 'custom-marker-selecionado',
-    html: `<div class="custom-marker-selecionado-pin">
+  if (!selectedIconSingleton) {
+    selectedIconSingleton = L.divIcon({
+      className: 'custom-marker-selecionado',
+      html: `<div class="custom-marker-selecionado-pin">
       <svg width="40" height="54" viewBox="0 0 40 54" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
         <path d="M20 0C8.95 0 0 8.95 0 20c0 15 20 34 20 34s20-19 20-34C40 8.95 31.05 0 20 0z" fill="#EA4335"/>
         <circle cx="20" cy="20" r="7.5" fill="#ffffff"/>
       </svg>
     </div>`,
-    iconSize: [40, 54],
-    iconAnchor: [20, 54],
-    popupAnchor: [0, -54],
-  });
+      iconSize: [40, 54],
+      iconAnchor: [20, 54],
+      popupAnchor: [0, -54],
+    });
+  }
+  return selectedIconSingleton;
 }
 
 const EMOJI_POR_TIPO = {
@@ -234,6 +256,25 @@ const LEGENDA_TIPOS = [
   },
 ];
 
+// Centro de Votorantim — usado como centro inicial do mapa e também como
+// referência para a lista "unidades mais próximas" por padrão (antes de o
+// cidadão buscar um endereço ou usar o GPS), pra ela nunca aparecer vazia.
+const CENTRO_VOTORANTIM = [-23.545, -47.44];
+
+function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 function buildWhatsAppShareUrl(unidade) {
   const rotaUrl = `https://www.google.com/maps/dir/?api=1&destination=${unidade.lat},${unidade.lng}`;
   const texto = `${unidade.nome}\n${unidade.endereco}\nComo chegar: ${rotaUrl}`;
@@ -273,13 +314,17 @@ export default function Map() {
   const markerRefs = useRef({});
   const [unidades, setUnidades] = useState([]);
   const [query, setQuery] = useState('');
-  const [center, setCenter] = useState([-23.545, -47.44]);
+  const [center, setCenter] = useState(CENTRO_VOTORANTIM);
   const [zoom, setZoom] = useState(13);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [unidadesProximas, setUnidadesProximas] = useState([]);
+  // true só depois de uma busca por endereço/GPS real — antes disso a lista
+  // de "unidades próximas" é só um padrão (mais perto do centro da cidade),
+  // então não mostramos distância/"perto de você" pra não parecer dado real.
+  const [localizacaoBuscada, setLocalizacaoBuscada] = useState(false);
   const [noticias, setNoticias] = useState([]);
   const [eventosDestaque, setEventosDestaque] = useState([]);
 
@@ -299,7 +344,18 @@ export default function Map() {
       if (error) {
         console.error('Erro ao buscar unidades', error);
       } else {
-        setUnidades(data || []);
+        const lista = data || [];
+        setUnidades(lista);
+        // Lista "unidades mais próximas" parte preenchida com as unidades mais
+        // próximas do centro de Votorantim (sem exibir distância/"perto de
+        // você", já que não é a localização real do cidadão) — assim a
+        // sidebar nunca fica vazia antes de uma busca por endereço/GPS.
+        const padraoOrdenado = [...lista].sort(
+          (a, b) =>
+            calcularDistanciaKm(CENTRO_VOTORANTIM[0], CENTRO_VOTORANTIM[1], a.lat, a.lng) -
+            calcularDistanciaKm(CENTRO_VOTORANTIM[0], CENTRO_VOTORANTIM[1], b.lat, b.lng)
+        );
+        setUnidadesProximas(padraoOrdenado);
       }
       setDataLoading(false);
     }
@@ -355,20 +411,6 @@ export default function Map() {
 
   const unidadesFiltradas = unidades.filter(matchesFiltro);
   const unidadesProximasFiltradas = unidadesProximas.filter(matchesFiltro);
-
-  const calcularDistancia = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
 
   const focarUnidade = (unidade, zoomAlvo = 15, delay = 0) => {
     const abrir = () => {
@@ -427,11 +469,12 @@ export default function Map() {
         setCenter([userLat, userLon]);
         setZoom(14);
         setUserLocation([userLat, userLon]);
+        setLocalizacaoBuscada(true);
 
         const unidadesComDistancia = unidades
           .map((u) => ({
             ...u,
-            distancia: calcularDistancia(userLat, userLon, u.lat, u.lng),
+            distancia: calcularDistanciaKm(userLat, userLon, u.lat, u.lng),
           }))
           .sort((a, b) => a.distancia - b.distancia);
 
@@ -476,13 +519,14 @@ export default function Map() {
         setZoom(14);
         setQuery('Minha localização atual');
         setUserLocation([userLat, userLon]);
+        setLocalizacaoBuscada(true);
         registrarBairroPorCoordenada(userLat, userLon);
 
         if (unidades.length > 0) {
           const unidadesComDistancia = unidades
             .map((u) => ({
               ...u,
-              distancia: calcularDistancia(userLat, userLon, u.lat, u.lng),
+              distancia: calcularDistanciaKm(userLat, userLon, u.lat, u.lng),
             }))
             .sort((a, b) => a.distancia - b.distancia);
 
@@ -840,7 +884,9 @@ export default function Map() {
                 <span className="truncate">
                   {intencaoAtiva && intencaoAtiva.matched
                     ? `Recomendadas (${listaSidebar.length})`
-                    : 'Unidades mais próximas'}
+                    : localizacaoBuscada
+                      ? 'Unidades mais próximas'
+                      : 'Unidades próximas ao centro'}
                 </span>
               </div>
               {intencaoAtiva && intencaoAtiva.matched && (
@@ -868,9 +914,10 @@ export default function Map() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {/* Dica de proximidade se o usuário ainda não buscou endereço */}
-                  {unidadesProximas.length === 0 && intencaoAtiva && (
-                    <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-2.5 text-[11px] text-indigo-700 leading-snug">
-                      💡 Digite seu endereço ou clique em <strong>Minha Localização</strong> para ordenar por distância.
+                  {!localizacaoBuscada && (
+                    <div className="bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/30 rounded-xl p-2.5 text-[11px] text-indigo-700 dark:text-indigo-300 leading-snug">
+                      💡 Esta lista mostra as unidades mais perto do centro de Votorantim. Digite seu endereço ou clique em{' '}
+                      <strong>Minha Localização</strong> para ver a distância até você.
                     </div>
                   )}
 
@@ -993,7 +1040,7 @@ export default function Map() {
                       className="flex items-center gap-3 py-3 group first:pt-0 last:pb-0"
                     >
                       {n.imagem_url ? (
-                        <img src={n.imagem_url} alt="" className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
+                        <img src={n.imagem_url} alt="" loading="lazy" decoding="async" className="h-14 w-14 rounded-xl object-cover flex-shrink-0" />
                       ) : (
                         <div className="h-14 w-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                           <Newspaper size={18} className="text-slate-300 dark:text-slate-600" />

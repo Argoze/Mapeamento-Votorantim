@@ -1,6 +1,44 @@
 import { useState, useRef } from 'react';
-import { Camera, X, Upload, Loader2, ImagePlus, AlertCircle } from 'lucide-react';
+import { Camera, X, Loader2, ImagePlus, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+// Reduz a imagem antes de enviar: fotos de celular costumam vir com 10-15MB
+// e muito mais pixels do que qualquer card do site vai exibir (as miniaturas
+// são de no máximo ~450px). Isso deixa o upload mais rápido pro admin e,
+// principalmente, deixa o download bem mais rápido pra cada cidadão que
+// visita uma página com fotos (impacto multiplicado por todo mundo que vê,
+// não só por quem envia).
+async function comprimirImagem(file, { maxDimensao = 1600, qualidade = 0.82 } = {}) {
+  // GIFs (podem ser animados) e SVGs (vetor) não passam pelo canvas.
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') return file;
+  if (typeof createImageBitmap !== 'function') return file;
+
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return file; // navegador/arquivo não suportado: envia o original
+  }
+
+  const escala = Math.min(1, maxDimensao / Math.max(bitmap.width, bitmap.height));
+  const largura = Math.max(1, Math.round(bitmap.width * escala));
+  const altura = Math.max(1, Math.round(bitmap.height * escala));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = largura;
+  canvas.height = altura;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(bitmap, 0, 0, largura, altura);
+  bitmap.close?.();
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', qualidade));
+  // Só troca pelo arquivo comprimido se ele realmente ficou menor.
+  if (!blob || blob.size >= file.size) return file;
+
+  const nomeComprimido = file.name.replace(/\.\w+$/, '') + '.jpg';
+  return new File([blob], nomeComprimido, { type: 'image/jpeg' });
+}
 
 export default function ImageUpload({ images = [], onImagesChange, maxImages = 10, folder = 'geral' }) {
   const [uploading, setUploading] = useState(false);
@@ -9,22 +47,25 @@ export default function ImageUpload({ images = [], onImagesChange, maxImages = 1
   const fileInputRef = useRef(null);
 
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (depois de comprimida)
 
   const uploadFile = async (file) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
       throw new Error(`Formato não suportado: ${file.type.split('/')[1]}. Use JPG, PNG ou WebP.`);
     }
-    if (file.size > MAX_FILE_SIZE) {
-      throw new Error(`Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(1)}MB). Máximo: 5MB.`);
+
+    const arquivo = await comprimirImagem(file);
+
+    if (arquivo.size > MAX_FILE_SIZE) {
+      throw new Error(`Arquivo muito grande mesmo após otimização (${(arquivo.size / 1024 / 1024).toFixed(1)}MB). Máximo: 5MB.`);
     }
 
-    const fileExt = file.name.split('.').pop();
+    const fileExt = arquivo.name.split('.').pop();
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('imagens')
-      .upload(fileName, file, { cacheControl: '3600', upsert: false });
+      .upload(fileName, arquivo, { cacheControl: '3600', upsert: false });
 
     if (uploadError) throw uploadError;
 
@@ -128,11 +169,10 @@ export default function ImageUpload({ images = [], onImagesChange, maxImages = 1
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-            dragOver
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragOver
               ? 'border-blue-500 bg-blue-50'
               : 'border-slate-300 hover:border-blue-400 hover:bg-blue-50/50'
-          } ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+            } ${uploading ? 'pointer-events-none opacity-60' : ''}`}
         >
           {uploading ? (
             <div className="flex flex-col items-center gap-2">
