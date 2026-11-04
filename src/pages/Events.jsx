@@ -53,6 +53,7 @@ export default function Events() {
       const { data, error } = await supabase
         .from('eventos')
         .select('*')
+        .eq('status', 'publicado')
         .order('criado_em', { ascending: false });
 
       if (error) {

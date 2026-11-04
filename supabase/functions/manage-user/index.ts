@@ -1,20 +1,3 @@
-// Supabase Edge Function: manage-user
-//
-// Gestão de contas de usuário do /admin (além da criação, já resolvida pela
-// função "create-user"): listar usuários (com dados que só existem em
-// auth.users, inacessível ao cliente), ativar/desativar temporariamente
-// (ban/unban nativo do Supabase Auth) e excluir permanentemente.
-//
-// Só quem já está autenticado como "adm" consegue usar esta função — a
-// checagem é feita aqui, no servidor, antes de tocar na Service Role Key,
-// seguindo exatamente o mesmo padrão de "create-user".
-//
-// Deploy:
-//   supabase functions deploy manage-user
-//
-// Secret necessário (já deve estar configurado, é o mesmo usado por create-user):
-//   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<sua_service_role_key>
-
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -29,9 +12,8 @@ function json(body: unknown, status: number) {
     });
 }
 
-// "ban_duration" não aceita um valor que signifique "para sempre" diretamente,
-// então usamos uma duração bem longa (100 anos) pra representar desativação
-// até alguém reativar manualmente.
+// "ban_duration" não aceita um valor que signifique "para sempre" diretamente
+// uusando uma duração bem longa (100 anos) pra representar desativação até alguém reativar manualmente.
 const BAN_DURATION_DESATIVADO = '876000h';
 
 Deno.serve(async (req: Request) => {
@@ -82,8 +64,6 @@ Deno.serve(async (req: Request) => {
             return json({ error: 'Ação inválida. Use "list", "set_status" ou "delete".' }, 400);
         }
 
-        // Só agora, já confirmado que quem chamou é admin, criamos um cliente com a
-        // Service Role Key — que existe apenas neste ambiente de servidor.
         const adminClient = createClient(supabaseUrl, serviceRoleKey, {
             auth: { persistSession: false, autoRefreshToken: false },
         });
@@ -97,8 +77,7 @@ Deno.serve(async (req: Request) => {
                 return json({ error: 'Erro ao buscar perfis: ' + perfisError.message }, 500);
             }
 
-            // auth.admin.listUsers() é paginado (padrão: 50 por página) — percorre
-            // todas as páginas pra garantir que nenhum usuário fique de fora.
+            // percorre todas as páginas pra garantir que nenhum usuário fique de fora.
             const usuariosAuth: Record<string, unknown>[] = [];
             let page = 1;
             const perPage = 200;
@@ -158,8 +137,6 @@ Deno.serve(async (req: Request) => {
             if (deleteError) {
                 return json({ error: 'Erro ao excluir usuário: ' + deleteError.message }, 400);
             }
-            // A FK de perfis.id → auth.users.id costuma estar com ON DELETE CASCADE,
-            // mas removemos explicitamente aqui também pra garantir, caso não esteja.
             await adminClient.from('perfis').delete().eq('id', targetId);
             return json({ ok: true }, 200);
         }

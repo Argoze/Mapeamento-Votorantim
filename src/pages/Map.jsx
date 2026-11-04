@@ -286,6 +286,7 @@ export default function Map() {
       const { data } = await supabase
         .from('noticias')
         .select('*')
+        .eq('status', 'publicado')
         .order('criado_em', { ascending: false })
         .limit(10);
       if (data) setNoticias(data);

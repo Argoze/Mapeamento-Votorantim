@@ -14,15 +14,31 @@ export async function checkAuth() {
 
   const { data: perfil } = await supabase
     .from('perfis')
-    .select('role')
+    .select('role, nome, permissoes')
     .eq('id', session.user.id)
     .single();
 
   return {
     user: session.user,
-    role: perfil ? perfil.role : null
+    role: perfil ? perfil.role : null,
+    nome: perfil?.nome || null,
+    // null/undefined/[] = acesso total aos módulos do /admin (admin "master").
+    // Só é relevante pra role === 'adm' — ver temAcesso() em Admin.jsx.
+    permissoes: perfil?.permissoes || null,
   };
 }
+
+// Lista de módulos que podem ser restringidos por admin (ver coluna
+// perfis.permissoes e a função SQL public.tem_permissao). Mantida aqui pra
+// ficar fácil de reusar nos componentes que montam checkboxes de permissão.
+export const MODULOS_ADMIN = [
+  { id: 'noticias', label: 'Notícias' },
+  { id: 'eventos', label: 'Eventos / Campanhas' },
+  { id: 'unidades', label: 'Unidades de saúde' },
+  { id: 'correcoes', label: 'Correções do cidadão' },
+  { id: 'usuarios', label: 'Gerenciar usuários' },
+  { id: 'relatorios', label: 'Relatórios e auditoria' },
+];
 
 export async function logout() {
   await supabase.auth.signOut();
@@ -43,14 +59,14 @@ export async function logout() {
 // que quem está chamando é um usuário autenticado com papel 'adm' antes de criar
 // qualquer conta nova. Ver supabase/functions/create-user/index.ts e o README para
 // instruções de deploy e configuração dos secrets.
-export async function createUserWithProfile(email, password, role, nome) {
+export async function createUserWithProfile(email, password, role, nome, permissoes = null) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     throw new Error("Sessão expirada. Faça login novamente.");
   }
 
   const { data, error } = await supabase.functions.invoke('create-user', {
-    body: { email, password, role, nome },
+    body: { email, password, role, nome, permissoes },
   });
 
   if (error) {
@@ -109,6 +125,15 @@ export async function setUserStatusAdmin(id, desativar) {
     body: { action: 'set_status', id, desativar },
   });
   if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao atualizar status do usuário."));
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function setPermissoesAdmin(id, permissoes) {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'set_permissions', id, permissoes },
+  });
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao atualizar permissões."));
   if (data?.error) throw new Error(data.error);
   return data;
 }

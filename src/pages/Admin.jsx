@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase, checkAuth, logout, createUserWithProfile, listUsersAdmin, setUserStatusAdmin, deleteUserAdmin, registrarAuditoria } from '../lib/supabase';
+import { supabase, checkAuth, logout, createUserWithProfile, listUsersAdmin, setUserStatusAdmin, setPermissoesAdmin, deleteUserAdmin, registrarAuditoria, MODULOS_ADMIN } from '../lib/supabase';
 import {
   Megaphone, Users, Shield, LogOut, Calendar, Trash2, Pencil, XCircle,
   Plus, ExternalLink, LayoutDashboard, Newspaper,
@@ -77,15 +77,21 @@ export default function Admin() {
   const [newUserSenha, setNewUserSenha] = useState('');
   const [newUserNome, setNewUserNome] = useState('');
   const [newUserRole, setNewUserRole] = useState('saude');
+  const [newUserAcessoTotal, setNewUserAcessoTotal] = useState(true);
+  const [newUserPermissoes, setNewUserPermissoes] = useState([]);
   const [userLoading, setUserLoading] = useState(false);
   const [mostrarCriarUsuario, setMostrarCriarUsuario] = useState(false);
 
-  // States para a lista de contas (reset de senha, desativar/reativar, excluir)
+  // States para a lista de contas (reset de senha, desativar/reativar, excluir,
+  // permissões granulares por módulo)
   const [listaUsuarios, setListaUsuarios] = useState([]);
   const [usuariosLoading, setUsuariosLoading] = useState(true);
   const [usuariosErro, setUsuariosErro] = useState(null);
   const [acaoUsuarioId, setAcaoUsuarioId] = useState(null);
   const [confirmarExclusaoId, setConfirmarExclusaoId] = useState(null);
+  const [permissoesEditandoId, setPermissoesEditandoId] = useState(null);
+  const [permissoesAcessoTotal, setPermissoesAcessoTotal] = useState(true);
+  const [permissoesSelecionadas, setPermissoesSelecionadas] = useState([]);
 
   // States para listagem e exclusão de eventos
   const [eventos, setEventos] = useState([]);
@@ -176,6 +182,8 @@ export default function Admin() {
 
   // Active panel for mobile
   const [activePanel, setActivePanel] = useState('dashboard');
+  // null/undefined/[] = acesso total aos módulos do /admin (admin "master").
+  const [minhasPermissoes, setMinhasPermissoes] = useState(null);
 
   const navigate = useNavigate();
 
@@ -187,6 +195,7 @@ export default function Admin() {
         return;
       }
       setCurrentUser(authData.user);
+      setMinhasPermissoes(authData.permissoes);
     }
     verifyAuth();
   }, [navigate]);
@@ -946,7 +955,8 @@ export default function Admin() {
         throw new Error("A senha deve ter pelo menos 6 caracteres.");
       }
 
-      const novoUsuario = await createUserWithProfile(newUserEmail, newUserSenha, newUserRole, newUserNome);
+      const permissoesParaEnviar = newUserRole === 'adm' && !newUserAcessoTotal ? newUserPermissoes : null;
+      const novoUsuario = await createUserWithProfile(newUserEmail, newUserSenha, newUserRole, newUserNome, permissoesParaEnviar);
 
       registrarAuditoria({
         usuarioId: currentUser.id, usuarioEmail: currentUser.email,
@@ -956,6 +966,7 @@ export default function Admin() {
 
       setToast({ message: "Usuário criado com sucesso! Ele já pode acessar o sistema.", type: "success" });
       setNewUserEmail(''); setNewUserSenha(''); setNewUserNome(''); setNewUserRole('saude');
+      setNewUserAcessoTotal(true); setNewUserPermissoes([]);
       setMostrarCriarUsuario(false);
       fetchAuditoria();
       fetchUsuarios();
@@ -1030,6 +1041,82 @@ export default function Admin() {
     setAcaoUsuarioId(null);
   };
 
+  const handleAbrirPermissoes = (usuario) => {
+    setPermissoesEditandoId(usuario.id);
+    setPermissoesAcessoTotal(!usuario.permissoes || usuario.permissoes.length === 0);
+    setPermissoesSelecionadas(usuario.permissoes || []);
+  };
+
+  const toggleModuloPermissao = (moduloId) => {
+    setPermissoesSelecionadas((prev) =>
+      prev.includes(moduloId) ? prev.filter((m) => m !== moduloId) : [...prev, moduloId]
+    );
+  };
+
+  const handleSalvarPermissoes = async (usuario) => {
+    setAcaoUsuarioId(usuario.id);
+    try {
+      const permissoes = permissoesAcessoTotal ? null : permissoesSelecionadas;
+      await setPermissoesAdmin(usuario.id, permissoes);
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'editar', entidade: 'usuario',
+        entidadeId: usuario.id, entidadeTitulo: `Permissões de ${usuario.nome || usuario.email}: ${permissoes ? permissoes.join(', ') : 'acesso total'}`,
+      });
+      setToast({ message: `Permissões de ${usuario.nome || usuario.email} atualizadas.`, type: "success" });
+      setPermissoesEditandoId(null);
+      fetchUsuarios();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao atualizar permissões: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
+  };
+
+  const handleAprovarConteudo = async (tipo, item) => {
+    const tabela = tipo === 'noticia' ? 'noticias' : 'eventos';
+    setAcaoUsuarioId(item.id);
+    try {
+      const { error } = await supabase.from(tabela).update({
+        status: 'publicado',
+        aprovado_por: currentUser.id,
+        aprovado_em: new Date().toISOString(),
+      }).eq('id', item.id);
+      if (error) throw error;
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'editar', entidade: tipo,
+        entidadeId: item.id, entidadeTitulo: `Aprovado: ${item.titulo}`,
+      });
+      setToast({ message: `"${item.titulo}" aprovado(a) e publicado(a).`, type: "success" });
+      tipo === 'noticia' ? fetchNoticias() : fetchEventos();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao aprovar: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
+  };
+
+  const handleRejeitarConteudo = async (tipo, item) => {
+    const tabela = tipo === 'noticia' ? 'noticias' : 'eventos';
+    setAcaoUsuarioId(item.id);
+    try {
+      const { error } = await supabase.from(tabela).delete().eq('id', item.id);
+      if (error) throw error;
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'excluir', entidade: tipo,
+        entidadeId: item.id, entidadeTitulo: `Rejeitado: ${item.titulo}`,
+      });
+      setToast({ message: `"${item.titulo}" rejeitado(a) e removido(a).`, type: "info" });
+      tipo === 'noticia' ? fetchNoticias() : fetchEventos();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao rejeitar: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
+  };
+
   const getUserInitials = () => {
     if (!currentUser?.email) return 'AD';
     return currentUser.email.substring(0, 2).toUpperCase();
@@ -1064,8 +1151,16 @@ export default function Admin() {
   const noticiasNovasSemana = noticias.filter(criadaNaUltimaSemana);
   const noticiasNovasSemConteudo = noticiasNovasSemana.filter(n => !n.conteudo || !n.conteudo.trim());
   const correcoesPendentesCount = correcoes.filter(c => c.status === 'pendente').length;
+  const noticiasPendentesAprovacao = noticias.filter(n => n.status === 'pendente');
+  const eventosPendentesAprovacao = eventos.filter(e => e.status === 'pendente');
+  const totalPendentesAprovacao = noticiasPendentesAprovacao.length + eventosPendentesAprovacao.length;
 
   const alertasProativos = [
+    totalPendentesAprovacao > 0 && {
+      chave: 'conteudo-pendente-aprovacao',
+      mensagem: `${totalPendentesAprovacao} item(ns) da equipe de saúde aguardando aprovação.`,
+      painel: 'aprovacoes',
+    },
     unidadesNovasSemTelefone.length > 0 && {
       chave: 'unidades-sem-telefone-semana',
       mensagem: `${unidadesNovasSemTelefone.length} unidade(s) nova(s) esta semana ainda sem telefone.`,
@@ -1139,6 +1234,12 @@ export default function Admin() {
       ],
     },
     {
+      id: 'aprovacoes',
+      label: 'Aprovações',
+      icon: CheckCheck,
+      badge: totalPendentesAprovacao || null,
+    },
+    {
       id: 'correcoes',
       label: 'Correções do Cidadão',
       icon: MessageSquareWarning,
@@ -1156,6 +1257,38 @@ export default function Admin() {
       ],
     },
   ];
+
+  // Permissões granulares entre admins: cada painel pertence a um módulo
+  // (ver coluna perfis.permissoes); minhasPermissoes === null/[] = acesso
+  // total (admin "master"), igual ao comportamento de sempre.
+  const MODULO_POR_PAINEL = {
+    eventos: 'eventos', gerenciar: 'eventos',
+    noticias: 'noticias', gerenciar_noticias: 'noticias',
+    unidades: 'unidades', importar_unidades: 'unidades', gerenciar_unidades: 'unidades', completar_cadastro: 'unidades',
+    correcoes: 'correcoes',
+    usuarios: 'usuarios',
+    analytics: 'relatorios', auditoria: 'relatorios', exportar: 'relatorios',
+  };
+  const temAcesso = (painelId) => {
+    if (!minhasPermissoes || minhasPermissoes.length === 0) return true;
+    if (painelId === 'dashboard') return true;
+    if (painelId === 'aprovacoes') return minhasPermissoes.includes('noticias') || minhasPermissoes.includes('eventos');
+    const modulo = MODULO_POR_PAINEL[painelId];
+    return !modulo || minhasPermissoes.includes(modulo);
+  };
+  const sidebarGroupsVisiveis = sidebarGroups
+    .map((grupo) => grupo.children
+      ? { ...grupo, children: grupo.children.filter((c) => temAcesso(c.id)) }
+      : grupo)
+    .filter((grupo) => grupo.children ? grupo.children.length > 0 : temAcesso(grupo.id));
+
+  // Se o painel ativo deixou de ser acessível (ex: outro admin trocou as
+  // permissões desta conta), volta pro Dashboard — ajuste de estado derivado
+  // direto no corpo do componente, sem useEffect, mesmo padrão já usado nos
+  // outros pontos deste arquivo.
+  if (!temAcesso(activePanel) && activePanel !== 'dashboard') {
+    setActivePanel('dashboard');
+  }
 
   return (
     <div className="text-slate-800 antialiased min-h-screen bg-slate-50">
@@ -1237,7 +1370,7 @@ export default function Admin() {
 
       <div className="pt-16 flex">
         <AdminSidebar
-          groups={sidebarGroups}
+          groups={sidebarGroupsVisiveis}
           activePanel={activePanel}
           setActivePanel={setActivePanel}
           quickLinks={[
@@ -1357,7 +1490,7 @@ export default function Admin() {
                   cor: 'bg-fuchsia-100 text-fuchsia-600',
                   painel: 'analytics',
                 },
-              ];
+              ].filter((kpi) => temAcesso(kpi.painel));
 
               return (
                 <div className="animate-fade-in space-y-6">
@@ -1957,6 +2090,30 @@ export default function Admin() {
                         </div>
                       </div>
 
+                      {newUserRole === 'adm' && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            <input type="checkbox" checked={newUserAcessoTotal} onChange={(e) => setNewUserAcessoTotal(e.target.checked)} className="rounded" />
+                            Acesso total (todos os módulos)
+                          </label>
+                          {!newUserAcessoTotal && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
+                              {MODULOS_ADMIN.map((m) => (
+                                <label key={m.id} className="flex items-center gap-1.5 text-xs text-slate-600">
+                                  <input
+                                    type="checkbox"
+                                    checked={newUserPermissoes.includes(m.id)}
+                                    onChange={() => setNewUserPermissoes((prev) => prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id])}
+                                    className="rounded"
+                                  />
+                                  {m.label}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <button type="submit" disabled={userLoading} className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                         {userLoading ? (
                           <>
@@ -1986,81 +2143,222 @@ export default function Admin() {
                       {listaUsuarios.map((u) => {
                         const ehEuMesmo = u.id === currentUser?.id;
                         const carregandoAcao = acaoUsuarioId === u.id;
+                        const temAcessoLimitado = u.role === 'adm' && u.permissoes && u.permissoes.length > 0;
                         return (
-                          <div
-                            key={u.id}
-                            className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border ${u.desativado ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-slate-200'}`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-slate-800 text-sm flex items-center gap-2">
-                                {u.nome || '(sem nome)'}
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${u.role === 'adm' ? 'bg-indigo-100 text-indigo-700' : 'bg-sky-100 text-sky-700'}`}>
-                                  {u.role === 'adm' ? 'Admin' : 'Saúde'}
-                                </span>
-                                {u.desativado && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">Desativada</span>
+                          <div key={u.id}>
+                            <div
+                              className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border ${u.desativado ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-slate-200'}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-slate-800 text-sm flex items-center gap-2 flex-wrap">
+                                  {u.nome || '(sem nome)'}
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${u.role === 'adm' ? 'bg-indigo-100 text-indigo-700' : 'bg-sky-100 text-sky-700'}`}>
+                                    {u.role === 'adm' ? 'Admin' : 'Saúde'}
+                                  </span>
+                                  {temAcessoLimitado && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">Acesso limitado</span>
+                                  )}
+                                  {u.desativado && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">Desativada</span>
+                                  )}
+                                  {ehEuMesmo && (
+                                    <span className="text-[10px] font-semibold text-slate-400">(você)</span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                                {temAcessoLimitado && (
+                                  <p className="text-[11px] text-violet-500 mt-0.5">
+                                    Módulos: {u.permissoes.map((p) => MODULOS_ADMIN.find((m) => m.id === p)?.label || p).join(', ')}
+                                  </p>
                                 )}
-                                {ehEuMesmo && (
-                                  <span className="text-[10px] font-semibold text-slate-400">(você)</span>
-                                )}
-                              </p>
-                              <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                              </div>
+
+                              {confirmarExclusaoId === u.id ? (
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-xs font-semibold text-red-600">Excluir permanentemente?</span>
+                                  <button
+                                    type="button"
+                                    disabled={carregandoAcao}
+                                    onClick={() => handleExcluirUsuario(u)}
+                                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                                  >
+                                    {carregandoAcao ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar'}
+                                  </button>
+                                  <button type="button" onClick={() => setConfirmarExclusaoId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    disabled={carregandoAcao}
+                                    onClick={() => handleResetPassword(u)}
+                                    title="Enviar e-mail de redefinição de senha"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-all disabled:opacity-50"
+                                  >
+                                    <KeyRound size={14} /> Redefinir senha
+                                  </button>
+                                  {!ehEuMesmo && u.role === 'adm' && (
+                                    <button
+                                      type="button"
+                                      disabled={carregandoAcao}
+                                      onClick={() => handleAbrirPermissoes(u)}
+                                      title="Configurar permissões por módulo"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-50"
+                                    >
+                                      <Shield size={14} /> Permissões
+                                    </button>
+                                  )}
+                                  {!ehEuMesmo && (
+                                    <button
+                                      type="button"
+                                      disabled={carregandoAcao}
+                                      onClick={() => handleToggleStatusUsuario(u)}
+                                      title={u.desativado ? 'Reativar conta' : 'Desativar conta temporariamente'}
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 ${u.desativado ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}
+                                    >
+                                      {u.desativado ? <UserCheck size={14} /> : <UserX size={14} />}
+                                      {u.desativado ? 'Reativar' : 'Desativar'}
+                                    </button>
+                                  )}
+                                  {!ehEuMesmo && (
+                                    <button
+                                      type="button"
+                                      disabled={carregandoAcao}
+                                      onClick={() => setConfirmarExclusaoId(u.id)}
+                                      title="Excluir permanentemente"
+                                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            {confirmarExclusaoId === u.id ? (
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-xs font-semibold text-red-600">Excluir permanentemente?</span>
-                                <button
-                                  type="button"
-                                  disabled={carregandoAcao}
-                                  onClick={() => handleExcluirUsuario(u)}
-                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg disabled:opacity-60"
-                                >
-                                  {carregandoAcao ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar'}
-                                </button>
-                                <button type="button" onClick={() => setConfirmarExclusaoId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
-                                  Cancelar
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  disabled={carregandoAcao}
-                                  onClick={() => handleResetPassword(u)}
-                                  title="Enviar e-mail de redefinição de senha"
-                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-all disabled:opacity-50"
-                                >
-                                  <KeyRound size={14} /> Redefinir senha
-                                </button>
-                                {!ehEuMesmo && (
+                            {permissoesEditandoId === u.id && (
+                              <div className="mt-2 bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3 animate-fade-in">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+                                  <input type="checkbox" checked={permissoesAcessoTotal} onChange={(e) => setPermissoesAcessoTotal(e.target.checked)} className="rounded" />
+                                  Acesso total (todos os módulos)
+                                </label>
+                                {!permissoesAcessoTotal && (
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
+                                    {MODULOS_ADMIN.map((m) => (
+                                      <label key={m.id} className="flex items-center gap-1.5 text-xs text-violet-700">
+                                        <input
+                                          type="checkbox"
+                                          checked={permissoesSelecionadas.includes(m.id)}
+                                          onChange={() => toggleModuloPermissao(m.id)}
+                                          className="rounded"
+                                        />
+                                        {m.label}
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2 pt-1">
                                   <button
                                     type="button"
-                                    disabled={carregandoAcao}
-                                    onClick={() => handleToggleStatusUsuario(u)}
-                                    title={u.desativado ? 'Reativar conta' : 'Desativar conta temporariamente'}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 ${u.desativado ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}
+                                    disabled={acaoUsuarioId === u.id}
+                                    onClick={() => handleSalvarPermissoes(u)}
+                                    className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg disabled:opacity-60 flex items-center gap-1.5"
                                   >
-                                    {u.desativado ? <UserCheck size={14} /> : <UserX size={14} />}
-                                    {u.desativado ? 'Reativar' : 'Desativar'}
+                                    {acaoUsuarioId === u.id ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
+                                    Salvar permissões
                                   </button>
-                                )}
-                                {!ehEuMesmo && (
-                                  <button
-                                    type="button"
-                                    disabled={carregandoAcao}
-                                    onClick={() => setConfirmarExclusaoId(u.id)}
-                                    title="Excluir permanentemente"
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                                  >
-                                    <Trash2 size={14} />
+                                  <button type="button" onClick={() => setPermissoesEditandoId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
+                                    Cancelar
                                   </button>
-                                )}
+                                </div>
                               </div>
                             )}
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Panel: Aprovações de conteúdo (notícias/eventos criados pela equipe de saúde) */}
+            {activePanel === 'aprovacoes' && (
+              <div className="animate-fade-in">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                      <CheckCheck className="text-emerald-600" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Aprovações pendentes</h2>
+                      <p className="text-sm text-slate-500">Conteúdo criado pela equipe de saúde só fica visível ao cidadão depois de aprovado aqui.</p>
+                    </div>
+                  </div>
+
+                  {totalPendentesAprovacao === 0 ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">Nenhum item aguardando aprovação no momento.</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {noticiasPendentesAprovacao.map((n) => (
+                        <div key={`noticia-${n.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border border-slate-200 bg-white">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700">Notícia</span>
+                              {n.titulo}
+                            </p>
+                            <p className="text-xs text-slate-500 line-clamp-1">{n.resumo}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              disabled={acaoUsuarioId === n.id}
+                              onClick={() => handleAprovarConteudo('noticia', n)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                            >
+                              {acaoUsuarioId === n.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />} Aprovar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={acaoUsuarioId === n.id}
+                              onClick={() => handleRejeitarConteudo('noticia', n)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 text-xs font-bold rounded-lg disabled:opacity-60"
+                            >
+                              <Ban size={12} /> Rejeitar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {eventosPendentesAprovacao.map((ev) => (
+                        <div key={`evento-${ev.id}`} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border border-slate-200 bg-white">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">Evento</span>
+                              {ev.titulo}
+                            </p>
+                            <p className="text-xs text-slate-500 line-clamp-1">{ev.descricao}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              disabled={acaoUsuarioId === ev.id}
+                              onClick={() => handleAprovarConteudo('evento', ev)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                            >
+                              {acaoUsuarioId === ev.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCheck size={12} />} Aprovar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={acaoUsuarioId === ev.id}
+                              onClick={() => handleRejeitarConteudo('evento', ev)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-red-500 hover:bg-red-50 text-xs font-bold rounded-lg disabled:opacity-60"
+                            >
+                              <Ban size={12} /> Rejeitar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

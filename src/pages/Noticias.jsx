@@ -104,6 +104,7 @@ export default function Noticias() {
       const { data, error } = await supabase
         .from('noticias')
         .select('*')
+        .eq('status', 'publicado')
         .order('criado_em', { ascending: false });
 
       if (error) {

@@ -1,0 +1,41 @@
+name: Backup semanal do banco
+
+# Dispara a Edge Function "backup-dados" uma vez por semana (domingo às 03:00
+# UTC = meia-noite em Votorantim, horário de baixo uso) pra exportar uma cópia
+# das tabelas principais do banco e salvar no bucket "backups" do Supabase
+# Storage — camada extra de governança de dados, sem custo nenhum (o
+# GitHub Actions é gratuito pra esse tipo de agendamento leve).
+#
+# Também pode ser disparado manualmente em Actions > Backup semanal do banco
+# > Run workflow, caso queira um backup fora do horário programado.
+#
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamar a Edge Function de backup
+        run: |
+          http_status=$(curl -s -o response.json -w "%{http_code}" -X POST \
+            "${SUPABASE_URL}/functions/v1/backup-dados" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "x-backup-secret: ${BACKUP_SECRET}" \
+            -H "Content-Type: application/json")
+
+          echo "Resposta da função:"
+          cat response.json
+          echo ""
+          echo "Status HTTP: $http_status"
+
+          if [ "$http_status" -ge 300 ]; then
+            echo "Backup falhou."
+            exit 1
+          fi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BACKUP_SECRET: ${{ secrets.BACKUP_SECRET }}

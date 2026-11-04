@@ -122,6 +122,9 @@ export default function Saude() {
         tipo: tipo,
         imagens: eventoImagens.length > 0 ? eventoImagens : null,
         publicar_em: agendarPublicacao && publicarEm ? new Date(publicarEm).toISOString() : null,
+        // Conteúdo criado pela equipe de saúde entra como "pendente" — um admin
+        // precisa aprovar antes de ficar visível pro cidadão (fluxo de aprovação).
+        status: 'pendente',
       };
 
       let error, data;
@@ -142,10 +145,10 @@ export default function Saude() {
       const foiAgendado = !!payload.publicar_em;
       setToast({
         message: editingEventoId
-          ? "Evento atualizado com sucesso!"
+          ? "Evento atualizado! Enviado novamente para aprovação do administrador."
           : foiAgendado
-            ? `Campanha agendada! Vai aparecer sozinha no portal em ${new Date(payload.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
-            : "Campanha publicada com sucesso!",
+            ? `Campanha enviada para aprovação! Depois de aprovada, aparece sozinha no portal em ${new Date(payload.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
+            : "Campanha enviada para aprovação! Vai aparecer no portal assim que um administrador aprovar.",
         type: "success",
       });
       resetEventoForm();
@@ -223,6 +226,9 @@ export default function Saude() {
         imagem_url: noticiaImagemUrl.length > 0 ? noticiaImagemUrl[0] : null,
         imagens: noticiaImagemUrl.length > 0 ? noticiaImagemUrl : null,
         destaque: noticiaDestaque,
+        // Conteúdo criado pela equipe de saúde entra como "pendente" — um admin
+        // precisa aprovar antes de ficar visível pro cidadão (fluxo de aprovação).
+        status: 'pendente',
       };
 
       let error, data;
@@ -240,7 +246,12 @@ export default function Saude() {
         entidadeId: editingNoticiaId || data?.id, entidadeTitulo: payload.titulo,
       });
 
-      setToast({ message: editingNoticiaId ? "Notícia atualizada com sucesso!" : "Notícia publicada com sucesso!", type: "success" });
+      setToast({
+        message: editingNoticiaId
+          ? "Notícia atualizada! Enviada novamente para aprovação do administrador."
+          : "Notícia enviada para aprovação! Vai aparecer no portal assim que um administrador aprovar.",
+        type: "success",
+      });
       resetNoticiaForm();
       setShowNoticiaPreview(false);
       fetchMinhasNoticias();
@@ -557,6 +568,11 @@ export default function Saude() {
                                   <Timer size={10} /> Agendado
                                 </span>
                               )}
+                              {evento.status === 'pendente' ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
+                              )}
                               <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
                             </div>
                             <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
@@ -729,6 +745,11 @@ export default function Saude() {
                               <div className="flex items-center gap-2 mb-1">
                                 {noticia.destaque && (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⭐ Destaque</span>
+                                )}
+                                {noticia.status === 'pendente' ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
                                 )}
                                 <h4 className="font-bold text-slate-800 text-sm truncate">{noticia.titulo}</h4>
                               </div>
