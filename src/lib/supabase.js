@@ -38,6 +38,7 @@ export const MODULOS_ADMIN = [
   { id: 'correcoes', label: 'Correções do cidadão' },
   { id: 'usuarios', label: 'Gerenciar usuários' },
   { id: 'relatorios', label: 'Relatórios e auditoria' },
+  { id: 'home', label: 'Página inicial (hero e destaque)' },
 ];
 
 export async function logout() {

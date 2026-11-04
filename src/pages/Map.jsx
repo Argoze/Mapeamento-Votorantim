@@ -19,7 +19,6 @@ import {
   Calendar,
   Search,
   Syringe,
-  Zap,
   Sparkles,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -37,16 +36,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Os ícones dos marcadores só dependem de (cor, emoji) — existe um número
-// pequeno e fixo de combinações possíveis (um por tipo de unidade). Sem
-// cache, o Leaflet recriava um L.divIcon novo pra CADA marcador em TODO
-// re-render do mapa (troca de filtro, favorito, seleção...), o que pesava
-// bastante com várias dezenas de unidades no mapa. Com o cache, o mesmo
-// ícone (mesmo objeto) é reaproveitado entre renders.
-// Atenção: este módulo também exporta um componente chamado "Map" (a
-// página em si) — usar `new Map()` aqui colidiria com esse nome (hoisted
-// no escopo do módulo) em vez do Map nativo do JS. Por isso o cache usa um
-// objeto simples, não um Map/hashmap.
 const iconCache = {};
 
 function createCustomIcon(color, emoji) {
@@ -155,7 +144,6 @@ function badgeClass(color) {
   return map[color] || 'bg-blue-500';
 }
 
-// ---------- Fundo do mapa (tiles) ----------
 const CARTO_API_KEY = import.meta.env.VITE_CARTO_API_KEY;
 const TILE_URL = CARTO_API_KEY
   ? `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`
@@ -165,7 +153,6 @@ const TILE_ATTRIBUTION = CARTO_API_KEY
   ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
   : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-// ---------- Favoritos (persistidos no navegador, sem exigir login do cidadão) ----------
 const FAVORITOS_KEY = 'votorantim-saude-favoritos';
 
 function loadFavoritos() {
@@ -180,12 +167,9 @@ function loadFavoritos() {
 function saveFavoritos(ids) {
   try {
     localStorage.setItem(FAVORITOS_KEY, JSON.stringify(ids));
-  } catch {
-    // Modo privado/restrito: localStorage pode não estar disponível.
-  }
+  } catch { }
 }
 
-// ---------- Filtros por tipo ----------
 const FILTROS = [
   'Todos',
   'UBS',
@@ -257,9 +241,6 @@ const LEGENDA_TIPOS = [
   },
 ];
 
-// Centro de Votorantim — usado como centro inicial do mapa e também como
-// referência para a lista "unidades mais próximas" por padrão (antes de o
-// cidadão buscar um endereço ou usar o GPS), pra ela nunca aparecer vazia.
 const CENTRO_VOTORANTIM = [-23.545, -47.44];
 
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
@@ -293,7 +274,6 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 }
 
-// Componente auxiliar para ajustar o mapa
 function MapController({ center, zoom, deslocarComPainel }) {
   const map = useMap();
   useEffect(() => {
@@ -322,23 +302,20 @@ export default function Map() {
   const [dataLoading, setDataLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [unidadesProximas, setUnidadesProximas] = useState([]);
-  // true só depois de uma busca por endereço/GPS real — antes disso a lista
-  // de "unidades próximas" é só um padrão (mais perto do centro da cidade),
-  // então não mostramos distância/"perto de você" pra não parecer dado real.
   const [localizacaoBuscada, setLocalizacaoBuscada] = useState(false);
   const [noticias, setNoticias] = useState([]);
   const [eventosDestaque, setEventosDestaque] = useState([]);
 
-  // Busca Inteligente por Intenção (sintomas, necessidades, linguagem leiga)
   const [intencaoTexto, setIntencaoTexto] = useState('');
   const [intencaoAtiva, setIntencaoAtiva] = useState(null);
   const [showAjudaModal, setShowAjudaModal] = useState(false);
 
-  // Filtro por tipo/favoritos
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   const [favoritos, setFavoritos] = useState(loadFavoritos);
   const [showLegenda, setShowLegenda] = useState(false);
   const [unidadeSelecionada, setUnidadeSelecionada] = useState(null);
+
+  const [configHome, setConfigHome] = useState(null);
 
   useEffect(() => {
     async function fetchUnidades() {
@@ -348,10 +325,6 @@ export default function Map() {
       } else {
         const lista = data || [];
         setUnidades(lista);
-        // Lista "unidades mais próximas" parte preenchida com as unidades mais
-        // próximas do centro de Votorantim (sem exibir distância/"perto de
-        // você", já que não é a localização real do cidadão) — assim a
-        // sidebar nunca fica vazia antes de uma busca por endereço/GPS.
         const padraoOrdenado = [...lista].sort(
           (a, b) =>
             calcularDistanciaKm(CENTRO_VOTORANTIM[0], CENTRO_VOTORANTIM[1], a.lat, a.lng) -
@@ -384,11 +357,30 @@ export default function Map() {
         );
       }
     }
+    async function fetchConfigHome() {
+      const { data, error } = await supabase
+        .from('configuracoes_home')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      if (!error && data) setConfigHome(data);
+    }
     fetchUnidades();
     fetchNoticias();
     fetchEventosDestaque();
+    fetchConfigHome();
     registrarPaginaVista('/');
   }, []);
+
+  const destaque = {
+    titulo: configHome?.destaque_titulo || 'Vacinação em dia!',
+    texto: configHome?.destaque_texto || 'Confira o calendário de vacinação e as campanhas ativas na cidade.',
+    botao_texto: configHome?.destaque_botao_texto || 'Saiba mais',
+    botao_link: configHome?.destaque_botao_link || '/eventos',
+    tipo_fundo: configHome?.destaque_tipo_fundo || 'cor',
+    cor_fundo: configHome?.destaque_cor_fundo || '#4338ca',
+    imagem_url: configHome?.destaque_imagem_url || null,
+  };
 
   const toggleFavorito = (id) => {
     setFavoritos((prev) => {
@@ -401,7 +393,6 @@ export default function Map() {
   const matchesFiltro = (unidade) => {
     if (tipoFiltro === 'Favoritos') return favoritos.includes(unidade.id);
 
-    // Se houver intenção inteligente ativa, filtra pelos tipos recomendados
     if (intencaoAtiva && intencaoAtiva.matched && intencaoAtiva.tiposAlvo) {
       const tipoUnidade = getUnitType(unidade).label;
       if (!intencaoAtiva.tiposAlvo.includes(tipoUnidade)) return false;
@@ -430,7 +421,6 @@ export default function Map() {
     setIntencaoAtiva(resultado);
 
     if (resultado && resultado.matched) {
-      // Se houver unidades recomendadas, foca na primeira/mais próxima
       const base = unidadesProximas.length > 0 ? unidadesProximas : unidades;
       const recomendadas = base.filter((u) =>
         resultado.tiposAlvo.includes(getUnitType(u).label)
@@ -439,8 +429,6 @@ export default function Map() {
         focarUnidade(recomendadas[0], 15, 300);
       }
 
-      // Leva o usuário direto para o mapa, já com as recomendações visíveis,
-      // em vez de deixá-lo parado na seção do topo.
       requestAnimationFrame(() => {
         document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' });
       });
@@ -549,7 +537,7 @@ export default function Map() {
       },
       () => {
         setError(
-          'Não foi possível obter sua localização automaticamente. Verifique se seu navegador tem permissão de localização ativada para este site (geralmente no ícone de cadeado ao lado do endereço) e tente novamente, ou use a busca por endereço acima.'
+          'Não foi possível obter sua localização automaticamente. Verifique se seu navegador tem permissão de localização ativada para este site e tente novamente, ou use a busca por endereço acima.'
         );
         setLoading(false);
       }
@@ -577,30 +565,44 @@ export default function Map() {
       <Navbar />
 
       {/* ===== Hero ===== */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 pt-28 pb-14 sm:pt-32 sm:pb-16">
-        <div className="absolute top-[-10%] right-[-5%] w-[380px] h-[380px] bg-indigo-200/30 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+      <section className="relative overflow-hidden bg-slate-900 py-12 sm:py-16 lg:py-20 mb-12 flex items-center">
+        {/* Imagem de Fundo cobrindo toda a extensão dinâmica da seção */}
+        {configHome?.hero_imagem_url ? (
+          <img
+            src={configHome.hero_imagem_url}
+            alt="Votorantim"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900" />
+        )}
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-8 items-center">
-            {/* Coluna da esquerda: texto + busca */}
-            <div className="text-center lg:text-left">
-              <span className="inline-flex items-center gap-2 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-xs font-bold px-4 py-1.5 rounded-full mb-5 animate-slide-down">
-                <Megaphone size={13} /> Bem-vindo(a) a Votorantim!
-              </span>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 leading-[1.05] mb-4 animate-slide-up">
-                Sua cidade,<br className="hidden sm:block" />{' '}
-                <span className="text-gradient">mais perto</span> de você.
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 mb-7 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-                Diga o que você precisa ou informe seu endereço. A gente mostra a unidade de saúde (ou outro serviço público) ideal, em segundos.
-              </p>
+        {/* Gradiente branco/escuro com blur cobrindo a lateral do texto */}
+        <div className="absolute inset-0 bg-gradient-to-r from-white/98 via-white/85 to-transparent dark:from-slate-950/98 dark:via-slate-950/85 dark:to-transparent backdrop-blur-[1px]" />
 
+        {/* Conteúdo centralizado verticalmente através do padding simétrico (py) */}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 w-full">
+          <div className="max-w-3xl text-left">
+
+            <span className="inline-flex items-center gap-2 bg-indigo-100/90 dark:bg-indigo-500/20 backdrop-blur-md text-indigo-700 dark:text-indigo-300 text-xs font-bold px-4 py-1.5 rounded-full mb-4 shadow-sm border border-indigo-200/50">
+              <Megaphone size={13} /> Bem-vindo(a) a Votorantim!
+            </span>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1] mb-3 drop-shadow-sm">
+              Sua cidade,<br /> <span className="text-indigo-600 dark:text-indigo-400">mais perto</span> de você.
+            </h1>
+
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base max-w-2xl mb-6 leading-relaxed font-medium">
+              Encontre serviços de saúde, fique por dentro das novidades, e acesse tudo o que você precisa em um só lugar.
+            </p>
+
+            {/* Barra de busca expandida */}
+            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-700 rounded-2xl p-2.5 shadow-2xl w-full max-w-2xl mb-4">
               <form
                 onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
-                className="flex flex-col sm:flex-row items-stretch gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 shadow-lg shadow-indigo-900/5 max-w-xl mx-auto lg:mx-0 mb-3 animate-slide-up"
-                style={{ animationDelay: '0.15s' }}
+                className="flex flex-col sm:flex-row items-stretch gap-2"
               >
-                <div className="flex items-center gap-2 flex-1 px-3">
+                <div className="flex items-center gap-2 flex-1 px-3 py-1">
                   <Search size={18} className="text-slate-400 flex-shrink-0" />
                   <label htmlFor="busca-endereco-hero" className="sr-only">Buscar por endereço, bairro ou CEP</label>
                   <input
@@ -608,123 +610,55 @@ export default function Map() {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Digite seu endereço, bairro ou CEP..."
-                    className="w-full py-2.5 bg-transparent text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none"
+                    placeholder="O que você procura? Ex: UBS, vacina, evento..."
+                    className="w-full bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-sm transition-colors flex-shrink-0"
+                  className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-md transition-all flex-shrink-0"
                 >
-                  {loading ? 'Buscando...' : 'Buscar'}
+                  {loading ? 'Buscando...' : 'Buscar →'}
                 </button>
               </form>
-              {error && (
-                <p className="text-xs text-red-600 dark:text-red-400 mb-3 max-w-xl mx-auto lg:mx-0">{error}</p>
-              )}
-
-              <div className="flex flex-wrap justify-center lg:justify-start gap-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                {[
-                  { label: 'Vacinação', icon: Syringe, to: '/eventos' },
-                  { label: 'UBS', icon: Building2, onClick: () => { setTipoFiltro('UBS'); document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }); } },
-                  { label: 'Eventos', icon: Megaphone, to: '/eventos' },
-                  { label: 'Notícias', icon: Newspaper, to: '/noticias' },
-                  { label: 'Equipamentos próximos', icon: Navigation, onClick: handleGeolocation },
-                ].map((chip) => {
-                  const Icon = chip.icon;
-                  const conteudo = (
-                    <>
-                      <Icon size={14} /> {chip.label}
-                    </>
-                  );
-                  const cls = 'inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold px-3.5 py-2 rounded-full hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors';
-                  return chip.to ? (
-                    <Link key={chip.label} to={chip.to} className={cls}>{conteudo}</Link>
-                  ) : (
-                    <button key={chip.label} type="button" onClick={chip.onClick} className={cls}>{conteudo}</button>
-                  );
-                })}
-              </div>
             </div>
 
-            {/* Coluna da direita: ilustração (sem foto real do município — composição gráfica própria) */}
-            <div className="relative hidden lg:block animate-fade-in" style={{ animationDelay: '0.1s' }}>
-              <div className="relative rounded-[2.5rem] rounded-bl-none overflow-hidden aspect-[4/3] bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 shadow-2xl">
-                <svg viewBox="0 0 400 300" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-                  <circle cx="320" cy="60" r="38" fill="white" fillOpacity="0.15" />
-                  <rect x="40" y="140" width="46" height="130" fill="white" fillOpacity="0.18" rx="4" />
-                  <rect x="96" y="100" width="54" height="170" fill="white" fillOpacity="0.25" rx="4" />
-                  <rect x="160" y="160" width="40" height="110" fill="white" fillOpacity="0.15" rx="4" />
-                  <rect x="210" y="80" width="58" height="190" fill="white" fillOpacity="0.3" rx="4" />
-                  <rect x="278" y="130" width="48" height="140" fill="white" fillOpacity="0.2" rx="4" />
-                  <rect x="334" y="170" width="40" height="100" fill="white" fillOpacity="0.15" rx="4" />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-24 w-24 rounded-3xl bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-xl animate-float">
-                    <Heart className="h-11 w-11 text-indigo-600" fill="currentColor" />
-                  </div>
-                </div>
-                <div className="absolute bottom-5 left-5 right-5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-2xl p-3.5 shadow-lg flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                    <Building2 size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">UBS Vila Garcia</p>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">a 850m de você</p>
-                  </div>
-                </div>
-              </div>
+            {error && (
+              <p className="text-xs text-red-600 dark:text-red-400 mb-3">{error}</p>
+            )}
+
+            {/* Chips de Acesso Rápido */}
+            <div className="flex flex-wrap items-center gap-2 max-w-2xl">
+              {[
+                { label: 'Vacinação', icon: Syringe, to: '/eventos' },
+                { label: 'UBS', icon: Building2, onClick: () => { setTipoFiltro('UBS'); document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }); } },
+                { label: 'Eventos', icon: Megaphone, to: '/eventos' },
+                { label: 'Notícias', icon: Newspaper, to: '/noticias' },
+                { label: 'Equipamentos próximos', icon: Navigation, onClick: handleGeolocation },
+              ].map((chip) => {
+                const Icon = chip.icon;
+                const conteudo = (
+                  <>
+                    <Icon size={14} className="text-indigo-600 dark:text-indigo-400" /> {chip.label}
+                  </>
+                );
+                const cls = 'inline-flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:hover:bg-slate-900 backdrop-blur-md border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3.5 py-2 rounded-full transition-all shadow-sm';
+                return chip.to ? (
+                  <Link key={chip.label} to={chip.to} className={cls}>{conteudo}</Link>
+                ) : (
+                  <button key={chip.label} type="button" onClick={chip.onClick} className={cls}>{conteudo}</button>
+                );
+              })}
             </div>
+
           </div>
         </div>
       </section>
 
       <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 relative z-10">
 
-
-        {/* Acesso rápido + Não sabe o que procurar + Vacinação em dia:
-            três cartões do mesmo tamanho lado a lado, para ocupar pouco
-            espaço vertical na tela. */}
-        <div className="grid sm:grid-cols-3 gap-5 mb-8 animate-slide-up items-stretch" style={{ animationDelay: '0.1s' }}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-                <Zap size={16} />
-              </div>
-              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Acesso rápido</h2>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">O que você precisa, em poucos cliques</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Campanhas de Vacinação', icon: Syringe, to: '/eventos' },
-                { label: 'Eventos na Cidade', icon: Megaphone, to: '/eventos' },
-                { label: 'Notícias', icon: Newspaper, to: '/noticias' },
-                { label: 'Buscar Equipamentos', icon: Building2, onClick: () => document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }) },
-                { label: 'Agendar Atendimento', icon: Calendar, onClick: () => { setTipoFiltro('UBS'); document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' }); } },
-                { label: 'Cuidados com a Saúde', icon: Heart, to: '/noticias' },
-              ].map((item) => {
-                const Icon = item.icon;
-                const conteudo = (
-                  <>
-                    <div className="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                      <Icon size={16} />
-                    </div>
-                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">{item.label}</span>
-                  </>
-                );
-                const className = 'group flex flex-col items-center gap-1.5 rounded-2xl p-1.5 hover:-translate-y-0.5 transition-all';
-                return item.to ? (
-                  <Link key={item.label} to={item.to} className={className}>{conteudo}</Link>
-                ) : (
-                  <button key={item.label} type="button" onClick={item.onClick} className={className}>{conteudo}</button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Gatilho do guia inteligente — abre um modal com as opções em
-              vez de ocupar uma seção grande na página por padrão. */}
+        <div className="grid sm:grid-cols-2 gap-5 mb-8 animate-slide-up items-stretch" style={{ animationDelay: '0.1s' }}>
           <button
             type="button"
             onClick={() => setShowAjudaModal(true)}
@@ -742,26 +676,49 @@ export default function Map() {
             </span>
           </button>
 
-          {/* Vacinação em dia */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-700 to-indigo-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between text-white">
-            <div className="absolute -right-8 -bottom-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
+          <div
+            className="relative overflow-hidden rounded-2xl p-6 shadow-lg flex flex-col justify-between text-white"
+            style={
+              destaque.tipo_fundo === 'imagem' && destaque.imagem_url
+                ? undefined
+                : { backgroundColor: destaque.cor_fundo }
+            }
+          >
+            {destaque.tipo_fundo === 'imagem' && destaque.imagem_url ? (
+              <>
+                <img src={destaque.imagem_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+              </>
+            ) : (
+              <div className="absolute -right-8 -bottom-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
+            )}
             <div className="relative">
               <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center mb-3">
                 <Syringe size={18} />
               </div>
-              <h3 className="text-lg font-extrabold mb-1">Vacinação em dia!</h3>
-              <p className="text-indigo-100 text-sm mb-5">Confira o calendário de vacinação e as campanhas ativas na cidade.</p>
+              <h3 className="text-lg font-extrabold mb-1">{destaque.titulo}</h3>
+              <p className="text-white/90 text-sm mb-5">{destaque.texto}</p>
             </div>
-            <Link
-              to="/eventos"
-              className="relative inline-flex items-center gap-1.5 bg-white text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl w-fit hover:shadow-md transition-shadow"
-            >
-              Saiba mais <ArrowRight size={14} />
-            </Link>
+            {/^https?:\/\//i.test(destaque.botao_link) ? (
+              <a
+                href={destaque.botao_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative inline-flex items-center gap-1.5 bg-white text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl w-fit hover:shadow-md transition-shadow"
+              >
+                {destaque.botao_texto} <ArrowRight size={14} />
+              </a>
+            ) : (
+              <Link
+                to={destaque.botao_link}
+                className="relative inline-flex items-center gap-1.5 bg-white text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl w-fit hover:shadow-md transition-shadow"
+              >
+                {destaque.botao_texto} <ArrowRight size={14} />
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* Modal do guia inteligente (seleção de tiles / busca livre) */}
         <IntentionSearchPanel
           open={showAjudaModal}
           onClose={() => setShowAjudaModal(false)}
@@ -772,8 +729,6 @@ export default function Map() {
           onClearIntencao={handleClearIntencao}
         />
 
-        {/* Card de resultado: só aparece depois que uma intenção é escolhida
-            no modal acima — mantém a página compacta por padrão. */}
         <IntentionResultCard
           intencaoAtiva={intencaoAtiva}
           totalRecomendadas={unidadesFiltradas.length}
@@ -781,7 +736,6 @@ export default function Map() {
           onClear={handleClearIntencao}
         />
 
-        {/* Filtros por tipo + legenda de siglas */}
         <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="flex flex-wrap items-center gap-2">
             <Filter size={16} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
@@ -796,7 +750,7 @@ export default function Map() {
                 aria-pressed={tipoFiltro === f}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${tipoFiltro === f
                   ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-800'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
               >
                 {f === 'Favoritos' && (
@@ -810,7 +764,7 @@ export default function Map() {
               onClick={() => setShowLegenda((v) => !v)}
               aria-expanded={showLegenda}
               aria-controls="legenda-siglas"
-              className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:text-indigo-600 transition-colors px-2 py-2"
+              className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors px-2 py-2"
             >
               <Info size={14} />
               O que significa cada sigla?
@@ -834,7 +788,7 @@ export default function Map() {
                   </span>
                   <div>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{item.nome}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{item.desc}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -842,7 +796,6 @@ export default function Map() {
           )}
         </div>
 
-        {/* Map + Sidebar */}
         <div
           id="busca-unidades"
           className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in scroll-mt-24"
@@ -914,7 +867,6 @@ export default function Map() {
             />
           </div>
 
-          {/* Sidebar */}
           <div className="glass-panel p-5 rounded-2xl shadow-lg border border-white/50 lg:col-span-1 h-[576px] flex flex-col">
             <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 mb-3 border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2 truncate">
@@ -940,7 +892,7 @@ export default function Map() {
               ) : listaSidebar.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="text-4xl mb-3 animate-float">🗺️</div>
-                  <p className="text-slate-600 dark:text-slate-300 dark:text-slate-600 text-sm font-semibold mb-1">
+                  <p className="text-slate-600 dark:text-slate-300 text-sm font-semibold mb-1">
                     {tipoFiltro !== 'Todos'
                       ? `Nenhuma unidade com o filtro "${tipoFiltro}".`
                       : 'Nenhuma unidade encontrada.'}
@@ -951,7 +903,6 @@ export default function Map() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {/* Dica de proximidade se o usuário ainda não buscou endereço */}
                   {!localizacaoBuscada && (
                     <div className="bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/30 rounded-xl p-2.5 text-[11px] text-indigo-700 dark:text-indigo-300 leading-snug">
                       💡 Esta lista mostra as unidades mais perto do centro de Votorantim. Digite seu endereço ou clique em{' '}
@@ -969,13 +920,7 @@ export default function Map() {
                         key={u.id}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Ver ${u.nome} no mapa${hasDistancia
-                          ? `, ${u.distancia < 1
-                            ? `${(u.distancia * 1000).toFixed(0)} metros`
-                            : `${u.distancia.toFixed(1)} quilômetros`
-                          } de distância`
-                          : ''
-                          }`}
+                        aria-label={`Ver ${u.nome} no mapa`}
                         className={`p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer animate-slide-up stagger-${Math.min(
                           index + 1,
                           6
@@ -1003,7 +948,7 @@ export default function Map() {
                             <span
                               className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 ${index === 0
                                 ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-600'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                                 }`}
                             >
                               {u.distancia < 1
@@ -1012,7 +957,7 @@ export default function Map() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{u.endereco}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{u.endereco}</p>
                         <div className="mt-2 flex items-center justify-between gap-2">
                           {hasDistancia && index === 0 ? (
                             <span className="inline-block text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -1029,11 +974,6 @@ export default function Map() {
                             }}
                             className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors flex-shrink-0"
                             title={isFavorito ? 'Remover dos favoritos' : 'Favoritar'}
-                            aria-label={
-                              isFavorito
-                                ? `Remover ${u.nome} dos favoritos`
-                                : `Favoritar ${u.nome}`
-                            }
                             aria-pressed={isFavorito}
                           >
                             <Heart
@@ -1051,10 +991,8 @@ export default function Map() {
           </div>
         </div>
 
-        {/* Notícias & Eventos em destaque */}
         {(noticias.length > 0 || eventosDestaque.length > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-            {/* Notícias */}
             <div className="glass-panel rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -1096,7 +1034,6 @@ export default function Map() {
               )}
             </div>
 
-            {/* Eventos */}
             <div className="glass-panel rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">

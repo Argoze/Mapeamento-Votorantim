@@ -9,11 +9,13 @@ import {
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
   History, MessageSquareWarning, CheckCheck, Ban,
   Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer,
-  TrendingUp, BarChart3, MapPinned, Flame, Filter, Bell, KeyRound, UserX, UserCheck
+  TrendingUp, BarChart3, MapPinned, Flame, Filter, Bell, KeyRound, UserX, UserCheck,
+  Home, Image as ImageIcon, Palette, Link as LinkIcon, Save
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
+import ImageCropUploader from '../components/ImageCropUploader';
 import PublishPreviewModal from '../components/PublishPreviewModal';
 import LocationMapPicker from '../components/LocationMapPicker';
 import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
@@ -188,6 +190,12 @@ export default function Admin() {
   // Toast
   const [toast, setToast] = useState(null);
 
+  // Página inicial (hero + card de destaque editáveis)
+  const [homeForm, setHomeForm] = useState(null);
+  const [homeLoading, setHomeLoading] = useState(true);
+  const [homeErro, setHomeErro] = useState(null);
+  const [homeSalvando, setHomeSalvando] = useState(false);
+
   // Exportação de planilhas: guarda a chave em exportação (ou '__tudo__') pra
   // desabilitar o botão certo e mostrar "Gerando..." enquanto a lib carrega.
   const [exportandoChave, setExportandoChave] = useState(null);
@@ -221,7 +229,60 @@ export default function Admin() {
     fetchCorrecoes();
     fetchMetricas();
     fetchUsuarios();
+    fetchConfigHome();
   }, []);
+
+  async function fetchConfigHome() {
+    setHomeLoading(true);
+    setHomeErro(null);
+    const { data, error } = await supabase
+      .from('configuracoes_home')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (error) {
+      console.error(error);
+      setHomeErro('Não foi possível carregar as configurações da página inicial. Rode o script "configuracoes_home.sql" (pasta supabase/sql) no SQL Editor do Supabase se ainda não rodou.');
+    } else {
+      setHomeForm(data);
+    }
+    setHomeLoading(false);
+  }
+
+  async function salvarConfigHome(e) {
+    e.preventDefault();
+    if (!homeForm) return;
+    setHomeSalvando(true);
+    const payload = {
+      id: 1,
+      hero_imagem_url: homeForm.hero_imagem_url || null,
+      destaque_titulo: homeForm.destaque_titulo,
+      destaque_texto: homeForm.destaque_texto,
+      destaque_botao_texto: homeForm.destaque_botao_texto,
+      destaque_botao_link: homeForm.destaque_botao_link,
+      destaque_tipo_fundo: homeForm.destaque_tipo_fundo,
+      destaque_cor_fundo: homeForm.destaque_cor_fundo,
+      destaque_imagem_url: homeForm.destaque_tipo_fundo === 'imagem' ? (homeForm.destaque_imagem_url || null) : null,
+      atualizado_em: new Date().toISOString(),
+      atualizado_por: currentUser?.id || null,
+    };
+    const { error } = await supabase.from('configuracoes_home').upsert(payload);
+    if (error) {
+      setToast({ message: `Erro ao salvar a página inicial: ${error.message}`, type: 'error' });
+    } else {
+      setToast({ message: 'Página inicial atualizada — já está valendo pros cidadãos.', type: 'success' });
+      registrarAuditoria({
+        usuarioId: currentUser?.id,
+        usuarioEmail: currentUser?.email,
+        acao: 'atualizou',
+        entidade: 'pagina_inicial',
+        entidadeId: 1,
+        entidadeTitulo: 'Hero e card de destaque',
+      });
+    }
+    setHomeSalvando(false);
+  }
 
   async function fetchUsuarios() {
     setUsuariosLoading(true);
@@ -1293,6 +1354,7 @@ export default function Admin() {
       badge: correcoes.filter(c => c.status === 'pendente').length || null,
     },
     { id: 'usuarios', label: 'Gerenciar Usuários', icon: Users },
+    { id: 'pagina_inicial', label: 'Página Inicial', icon: Home },
     {
       id: 'grupo-relatorios',
       label: 'Relatórios',
@@ -1314,6 +1376,7 @@ export default function Admin() {
     unidades: 'unidades', importar_unidades: 'unidades', gerenciar_unidades: 'unidades', completar_cadastro: 'unidades',
     correcoes: 'correcoes',
     usuarios: 'usuarios',
+    pagina_inicial: 'home',
     analytics: 'relatorios', auditoria: 'relatorios', exportar: 'relatorios',
   };
   const temAcesso = (painelId) => {
@@ -2325,6 +2388,204 @@ export default function Admin() {
                         );
                       })}
                     </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Panel: Página Inicial (hero + card de destaque editáveis) */}
+            {activePanel === 'pagina_inicial' && (
+              <div className="animate-fade-in space-y-6">
+                <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                      <Home className="text-indigo-600" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">Editar destaque da página inicial</h2>
+                      <p className="text-sm text-slate-500">Controla a foto de fundo da hero section e o card de destaque que todo cidadão vê ao abrir o site.</p>
+                    </div>
+                  </div>
+
+                  {homeLoading && (
+                    <div className="flex items-center gap-2 text-slate-400 text-sm py-8 justify-center">
+                      <Loader2 size={18} className="animate-spin" /> Carregando configurações...
+                    </div>
+                  )}
+
+                  {!homeLoading && homeErro && (
+                    <div className="flex items-start gap-2 text-amber-700 text-sm font-semibold bg-amber-50 p-4 rounded-xl border border-amber-200">
+                      <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                      {homeErro}
+                    </div>
+                  )}
+
+                  {!homeLoading && homeForm && (
+                    <form onSubmit={salvarConfigHome} className="space-y-8">
+                      {/* ===== Hero ===== */}
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                          <ImageIcon size={14} className="text-indigo-500" /> Foto de fundo da hero section
+                        </h3>
+                        <p className="text-xs text-slate-400 mb-3">Aparece atrás do título e da busca, no topo da página inicial. Um gradiente escuro é aplicado por cima automaticamente para o texto continuar legível.</p>
+                        <ImageCropUploader
+                          value={homeForm.hero_imagem_url}
+                          onChange={(url) => setHomeForm((f) => ({ ...f, hero_imagem_url: url }))}
+                          aspect={21 / 9}
+                          folder="home-hero"
+                          maxOutputWidth={1920}
+                        />
+                        {!homeForm.hero_imagem_url && (
+                          <p className="text-xs text-slate-400 mt-2">Sem imagem enviada: a hero section usa o plano de fundo atual (sem foto).</p>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-100" />
+
+                      {/* ===== Card de destaque ===== */}
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                          <Palette size={14} className="text-indigo-500" /> Card de destaque
+                        </h3>
+                        <p className="text-xs text-slate-400 mb-3">O card ao lado de "Não sabe o que procurar?" na página inicial — use pra dar prioridade à campanha ou notícia mais importante do momento.</p>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título</label>
+                            <input
+                              type="text"
+                              required
+                              value={homeForm.destaque_titulo}
+                              onChange={(e) => setHomeForm((f) => ({ ...f, destaque_titulo: e.target.value }))}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                              placeholder="Ex: Vacinação em dia!"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                              <LinkIcon size={13} /> Link do botão
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={homeForm.destaque_botao_link}
+                              onChange={(e) => setHomeForm((f) => ({ ...f, destaque_botao_link: e.target.value }))}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                              placeholder="/eventos ou https://..."
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Texto abaixo do título</label>
+                          <textarea
+                            required
+                            rows="2"
+                            value={homeForm.destaque_texto}
+                            onChange={(e) => setHomeForm((f) => ({ ...f, destaque_texto: e.target.value }))}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
+                            placeholder="Confira o calendário de vacinação e as campanhas ativas na cidade."
+                          />
+                        </div>
+
+                        <div className="mb-5 max-w-xs">
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Texto do botão</label>
+                          <input
+                            type="text"
+                            required
+                            value={homeForm.destaque_botao_texto}
+                            onChange={(e) => setHomeForm((f) => ({ ...f, destaque_botao_texto: e.target.value }))}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            placeholder="Saiba mais"
+                          />
+                        </div>
+
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Fundo do card</label>
+                        <div className="flex items-center gap-2 mb-4">
+                          <button
+                            type="button"
+                            onClick={() => setHomeForm((f) => ({ ...f, destaque_tipo_fundo: 'cor' }))}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${homeForm.destaque_tipo_fundo === 'cor'
+                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                              }`}
+                          >
+                            <Palette size={14} /> Cor sólida
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHomeForm((f) => ({ ...f, destaque_tipo_fundo: 'imagem' }))}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${homeForm.destaque_tipo_fundo === 'imagem'
+                              ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
+                              }`}
+                          >
+                            <ImageIcon size={14} /> Imagem
+                          </button>
+                        </div>
+
+                        {homeForm.destaque_tipo_fundo === 'cor' ? (
+                          <div className="flex items-center gap-3 max-w-xs">
+                            <input
+                              type="color"
+                              value={homeForm.destaque_cor_fundo}
+                              onChange={(e) => setHomeForm((f) => ({ ...f, destaque_cor_fundo: e.target.value }))}
+                              className="h-11 w-14 rounded-lg border border-slate-200 cursor-pointer"
+                            />
+                            <input
+                              type="text"
+                              value={homeForm.destaque_cor_fundo}
+                              onChange={(e) => setHomeForm((f) => ({ ...f, destaque_cor_fundo: e.target.value }))}
+                              className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm"
+                              placeholder="#4338ca"
+                            />
+                          </div>
+                        ) : (
+                          <div className="max-w-sm">
+                            <ImageCropUploader
+                              value={homeForm.destaque_imagem_url}
+                              onChange={(url) => setHomeForm((f) => ({ ...f, destaque_imagem_url: url }))}
+                              aspect={4 / 3}
+                              folder="home-destaque"
+                              maxOutputWidth={1000}
+                              hint="Um gradiente escuro é aplicado por cima automaticamente para o texto continuar legível."
+                            />
+                          </div>
+                        )}
+
+                        {/* Pré-visualização, no mesmo formato exibido na página inicial */}
+                        <div className="mt-5">
+                          <p className="text-xs font-semibold text-slate-400 mb-2">Pré-visualização</p>
+                          <div
+                            className="relative overflow-hidden rounded-2xl p-6 shadow-lg text-white max-w-sm"
+                            style={homeForm.destaque_tipo_fundo === 'cor' ? { backgroundColor: homeForm.destaque_cor_fundo } : undefined}
+                          >
+                            {homeForm.destaque_tipo_fundo === 'imagem' && homeForm.destaque_imagem_url && (
+                              <>
+                                <img src={homeForm.destaque_imagem_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                              </>
+                            )}
+                            <div className="relative">
+                              <h3 className="text-lg font-extrabold mb-1">{homeForm.destaque_titulo || 'Título'}</h3>
+                              <p className="text-sm text-white/90 mb-5">{homeForm.destaque_texto || 'Texto do card.'}</p>
+                              <span className="inline-flex items-center gap-1.5 bg-white text-indigo-700 font-bold text-sm px-4 py-2 rounded-xl w-fit">
+                                {homeForm.destaque_botao_texto || 'Botão'} <ArrowRight size={14} />
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={homeSalvando}
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60"
+                      >
+                        {homeSalvando ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                        {homeSalvando ? 'Salvando...' : 'Salvar alterações'}
+                      </button>
+                    </form>
                   )}
                 </div>
               </div>
