@@ -20,13 +20,14 @@ import {
   Search,
   Syringe,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
-import IntentionSearchPanel from '../components/IntentionSearchPanel';
+import IntentionSearchPanel, { IntentionResultCard } from '../components/IntentionSearchPanel';
 import { registrarVisualizacaoUnidade, registrarFiltroCategoria, registrarPaginaVista, registrarBairroPorCoordenada } from '../lib/metricas';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -331,6 +332,7 @@ export default function Map() {
   // Busca Inteligente por Intenção (sintomas, necessidades, linguagem leiga)
   const [intencaoTexto, setIntencaoTexto] = useState('');
   const [intencaoAtiva, setIntencaoAtiva] = useState(null);
+  const [showAjudaModal, setShowAjudaModal] = useState(false);
 
   // Filtro por tipo/favoritos
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
@@ -436,6 +438,12 @@ export default function Map() {
       if (recomendadas.length > 0) {
         focarUnidade(recomendadas[0], 15, 300);
       }
+
+      // Leva o usuário direto para o mapa, já com as recomendações visíveis,
+      // em vez de deixá-lo parado na seção do topo.
+      requestAnimationFrame(() => {
+        document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' });
+      });
     }
   };
 
@@ -675,9 +683,11 @@ export default function Map() {
       <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 relative z-10">
 
 
-        {/* Acesso rápido + Vacinação em dia */}
-        <div className="grid lg:grid-cols-3 gap-5 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 sm:p-6 shadow-sm">
+        {/* Acesso rápido + Não sabe o que procurar + Vacinação em dia:
+            três cartões do mesmo tamanho lado a lado, para ocupar pouco
+            espaço vertical na tela. */}
+        <div className="grid sm:grid-cols-3 gap-5 mb-8 animate-slide-up items-stretch" style={{ animationDelay: '0.1s' }}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
                 <Zap size={16} />
@@ -685,7 +695,7 @@ export default function Map() {
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Acesso rápido</h2>
             </div>
             <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">O que você precisa, em poucos cliques</p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { label: 'Campanhas de Vacinação', icon: Syringe, to: '/eventos' },
                 { label: 'Eventos na Cidade', icon: Megaphone, to: '/eventos' },
@@ -697,13 +707,13 @@ export default function Map() {
                 const Icon = item.icon;
                 const conteudo = (
                   <>
-                    <div className="h-11 w-11 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                      <Icon size={18} />
+                    <div className="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <Icon size={16} />
                     </div>
-                    <span className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">{item.label}</span>
+                    <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">{item.label}</span>
                   </>
                 );
-                const className = 'group flex flex-col items-center gap-2 rounded-2xl p-2 hover:-translate-y-0.5 transition-all';
+                const className = 'group flex flex-col items-center gap-1.5 rounded-2xl p-1.5 hover:-translate-y-0.5 transition-all';
                 return item.to ? (
                   <Link key={item.label} to={item.to} className={className}>{conteudo}</Link>
                 ) : (
@@ -713,8 +723,27 @@ export default function Map() {
             </div>
           </div>
 
+          {/* Gatilho do guia inteligente — abre um modal com as opções em
+              vez de ocupar uma seção grande na página por padrão. */}
+          <button
+            type="button"
+            onClick={() => setShowAjudaModal(true)}
+            className="group relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm flex flex-col justify-between text-left hover:shadow-md hover:-translate-y-0.5 transition-all"
+          >
+            <div>
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center mb-3 shadow-sm">
+                <Sparkles size={18} />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 mb-1">Não sabe o que procurar?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Conte o que você precisa e te indicamos para onde ir.</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold text-sm mt-4">
+              Começar <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </button>
+
           {/* Vacinação em dia */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-700 to-indigo-800 rounded-2xl p-6 shadow-lg flex flex-col justify-between text-white">
+          <div className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-indigo-700 to-indigo-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between text-white">
             <div className="absolute -right-8 -bottom-8 h-36 w-36 rounded-full bg-white/10 blur-xl pointer-events-none" />
             <div className="relative">
               <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center mb-3">
@@ -732,15 +761,24 @@ export default function Map() {
           </div>
         </div>
 
-        {/* Painel Inteligente: Busca por Intenção (sintomas/necessidades) — seção
-            própria, separada da busca por endereço (que já fica no hero). */}
+        {/* Modal do guia inteligente (seleção de tiles / busca livre) */}
         <IntentionSearchPanel
+          open={showAjudaModal}
+          onClose={() => setShowAjudaModal(false)}
           intencaoTexto={intencaoTexto}
           setIntencaoTexto={setIntencaoTexto}
           intencaoAtiva={intencaoAtiva}
           onSelectIntencao={handleSelectIntencao}
           onClearIntencao={handleClearIntencao}
+        />
+
+        {/* Card de resultado: só aparece depois que uma intenção é escolhida
+            no modal acima — mantém a página compacta por padrão. */}
+        <IntentionResultCard
+          intencaoAtiva={intencaoAtiva}
           totalRecomendadas={unidadesFiltradas.length}
+          onTrocar={() => setShowAjudaModal(true)}
+          onClear={handleClearIntencao}
         />
 
         {/* Filtros por tipo + legenda de siglas */}
