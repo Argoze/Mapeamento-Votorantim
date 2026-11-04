@@ -6,27 +6,27 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function checkAuth() {
-    const { data: { session }, error } = await supabase.auth.getSession();
+  const { data: { session }, error } = await supabase.auth.getSession();
 
-    if (error || !session) {
-        return null;
-    }
+  if (error || !session) {
+    return null;
+  }
 
-    const { data: perfil } = await supabase
-        .from('perfis')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+  const { data: perfil } = await supabase
+    .from('perfis')
+    .select('role')
+    .eq('id', session.user.id)
+    .single();
 
-    return {
-        user: session.user,
-        role: perfil ? perfil.role : null
-    };
+  return {
+    user: session.user,
+    role: perfil ? perfil.role : null
+  };
 }
 
 export async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
+  await supabase.auth.signOut();
+  window.location.href = '/login';
 }
 
 // Função para o ADM criar novos usuários.
@@ -71,6 +71,55 @@ export async function createUserWithProfile(email, password, role, nome) {
   }
 
   return data.user;
+}
+
+// Extrai a mensagem de erro de uma chamada a supabase.functions.invoke — o erro
+// "de rede" do SDK costuma vir genérico, mas o corpo JSON da resposta (quando a
+// função responde com status != 2xx) traz a mensagem real. Usado por todas as
+// chamadas às Edge Functions create-user e manage-user.
+async function extrairErroDeFuncao(error, fallback) {
+  let message = error?.message || fallback;
+  try {
+    if (error?.context && typeof error.context.json === 'function') {
+      const body = await error.context.json();
+      if (body?.error) message = body.error;
+    }
+  } catch {
+    // corpo do erro não era JSON válido; mantém a mensagem genérica
+  }
+  return message;
+}
+
+// Gestão de contas (além da criação): listar, desativar/reativar temporariamente
+// (ban nativo do Supabase Auth, em vez de uma coluna customizada que poderia ser
+// contornada chamando a API do Supabase Auth diretamente) e excluir permanentemente.
+// Tudo roda na mesma Edge Function "manage-user", protegida do mesmo jeito que
+// "create-user" — ver supabase/functions/manage-user/index.ts.
+export async function listUsersAdmin() {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'list' },
+  });
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao listar usuários."));
+  if (data?.error) throw new Error(data.error);
+  return data.users;
+}
+
+export async function setUserStatusAdmin(id, desativar) {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'set_status', id, desativar },
+  });
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao atualizar status do usuário."));
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function deleteUserAdmin(id) {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'delete', id },
+  });
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao excluir usuário."));
+  if (data?.error) throw new Error(data.error);
+  return data;
 }
 
 // Registra uma ação (criar/editar/excluir) na trilha de auditoria — quem fez o quê

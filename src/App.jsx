@@ -5,6 +5,7 @@ import Noticias from './pages/Noticias';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
 import Saude from './pages/Saude';
+import RedefinirSenha from './pages/RedefinirSenha';
 import OfflineBanner from './components/OfflineBanner';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/eventos" element={<Events />} />
         <Route path="/noticias" element={<Noticias />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/saude" element={<Saude />} />
         <Route path="*" element={<Navigate to="/" replace />} />

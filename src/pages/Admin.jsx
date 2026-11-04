@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase, checkAuth, logout, createUserWithProfile, registrarAuditoria } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import { supabase, checkAuth, logout, createUserWithProfile, listUsersAdmin, setUserStatusAdmin, deleteUserAdmin, registrarAuditoria } from '../lib/supabase';
 import {
   Megaphone, Users, Shield, LogOut, Calendar, Trash2, Pencil, XCircle,
   Plus, ExternalLink, LayoutDashboard, Newspaper,
   MapPin, Loader2, Star, Eye, Building2,
   Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
-  History, MessageSquareWarning, CheckCheck, Ban, ChevronDown,
+  History, MessageSquareWarning, CheckCheck, Ban,
   Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer,
-  TrendingUp, BarChart3, MapPinned, Flame, Filter
+  TrendingUp, BarChart3, MapPinned, Flame, Filter, Bell, KeyRound, UserX, UserCheck
 } from 'lucide-react';
 import Toast from '../components/Toast';
 import DateTimePickerModal from '../components/DateTimePickerModal';
@@ -17,6 +17,7 @@ import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
 import LocationMapPicker from '../components/LocationMapPicker';
 import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
+import AdminSidebar from '../components/AdminSidebar';
 
 import { parseCsvTexto, construirLinhasImportacao, gerarCsvModelo } from '../lib/importUnidades';
 import { csvUnidades, csvEventos, csvNoticias, csvCorrecoes, csvAuditoria, csvMetricas, baixarCsv, nomeArquivoComData } from '../lib/exportarDados';
@@ -77,6 +78,14 @@ export default function Admin() {
   const [newUserNome, setNewUserNome] = useState('');
   const [newUserRole, setNewUserRole] = useState('saude');
   const [userLoading, setUserLoading] = useState(false);
+  const [mostrarCriarUsuario, setMostrarCriarUsuario] = useState(false);
+
+  // States para a lista de contas (reset de senha, desativar/reativar, excluir)
+  const [listaUsuarios, setListaUsuarios] = useState([]);
+  const [usuariosLoading, setUsuariosLoading] = useState(true);
+  const [usuariosErro, setUsuariosErro] = useState(null);
+  const [acaoUsuarioId, setAcaoUsuarioId] = useState(null);
+  const [confirmarExclusaoId, setConfirmarExclusaoId] = useState(null);
 
   // States para listagem e exclusão de eventos
   const [eventos, setEventos] = useState([]);
@@ -156,6 +165,12 @@ export default function Admin() {
   const [metricasLoading, setMetricasLoading] = useState(true);
   const [metricasErro, setMetricasErro] = useState(null);
 
+  // Alerta proativo de qualidade de dados: dispara um toast UMA vez, assim
+  // que os dados terminam de carregar, se houver pendência — pra não
+  // depender do admin entrar manualmente no Dashboard/Qualidade dos dados
+  // pra descobrir que há algo faltando.
+  const [alertaProativoMostrado, setAlertaProativoMostrado] = useState(false);
+
   // Toast
   const [toast, setToast] = useState(null);
 
@@ -184,8 +199,21 @@ export default function Admin() {
     fetchAuditoria();
     fetchCorrecoes();
     fetchMetricas();
+    fetchUsuarios();
   }, []);
 
+  async function fetchUsuarios() {
+    setUsuariosLoading(true);
+    setUsuariosErro(null);
+    try {
+      const usuarios = await listUsersAdmin();
+      setListaUsuarios(usuarios);
+    } catch (err) {
+      console.error(err);
+      setUsuariosErro(err.message);
+    }
+    setUsuariosLoading(false);
+  }
 
   async function fetchAuditoria() {
     setAuditoriaLoading(true);
@@ -512,14 +540,12 @@ export default function Admin() {
     const normalizeText = (str) => str.normalize("NFD").replace(/[̀-ͯ]/g, "");
     const normalizedAddress = normalizeText(unidadeEndereco);
 
-    let data = null;
-
     // Tentativa 1: Endereço completo normalizado + Votorantim - SP
     let query1 = normalizedAddress;
     if (!query1.toLowerCase().includes('votorantim')) {
       query1 += ', Votorantim - SP';
     }
-    data = await trySearch(query1);
+    let data = await trySearch(query1);
 
     // Tentativa 2: Remove o número/número da casa (geralmente após a vírgula)
     if ((!data || data.length === 0) && normalizedAddress.includes(',')) {
@@ -930,13 +956,78 @@ export default function Admin() {
 
       setToast({ message: "Usuário criado com sucesso! Ele já pode acessar o sistema.", type: "success" });
       setNewUserEmail(''); setNewUserSenha(''); setNewUserNome(''); setNewUserRole('saude');
+      setMostrarCriarUsuario(false);
       fetchAuditoria();
+      fetchUsuarios();
     } catch (err) {
       console.error(err);
       setToast({ message: err.message, type: "error" });
     } finally {
       setUserLoading(false);
     }
+  };
+
+  const handleResetPassword = async (usuario) => {
+    if (!usuario.email) {
+      setToast({ message: "Este usuário não tem e-mail associado.", type: "error" });
+      return;
+    }
+    setAcaoUsuarioId(usuario.id);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(usuario.email, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      });
+      if (error) throw error;
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'editar', entidade: 'usuario',
+        entidadeId: usuario.id, entidadeTitulo: `Reset de senha solicitado para ${usuario.nome || usuario.email}`,
+      });
+      setToast({ message: `E-mail de redefinição de senha enviado para ${usuario.email}.`, type: "success" });
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao enviar redefinição de senha: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
+  };
+
+  const handleToggleStatusUsuario = async (usuario) => {
+    const desativar = !usuario.desativado;
+    setAcaoUsuarioId(usuario.id);
+    try {
+      await setUserStatusAdmin(usuario.id, desativar);
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'editar', entidade: 'usuario',
+        entidadeId: usuario.id, entidadeTitulo: `${desativar ? 'Desativação' : 'Reativação'} de ${usuario.nome || usuario.email}`,
+      });
+      setToast({ message: `Conta de ${usuario.nome || usuario.email} ${desativar ? 'desativada' : 'reativada'}.`, type: "success" });
+      fetchUsuarios();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao atualizar status: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
+  };
+
+  const handleExcluirUsuario = async (usuario) => {
+    setAcaoUsuarioId(usuario.id);
+    try {
+      await deleteUserAdmin(usuario.id);
+      registrarAuditoria({
+        usuarioId: currentUser.id, usuarioEmail: currentUser.email,
+        acao: 'excluir', entidade: 'usuario',
+        entidadeId: usuario.id, entidadeTitulo: `${usuario.nome || usuario.email} (papel: ${usuario.role})`,
+      });
+      setToast({ message: `Conta de ${usuario.nome || usuario.email} excluída permanentemente.`, type: "info" });
+      setConfirmarExclusaoId(null);
+      fetchUsuarios();
+      fetchAuditoria();
+    } catch (err) {
+      console.error(err);
+      setToast({ message: "Erro ao excluir usuário: " + err.message, type: "error" });
+    }
+    setAcaoUsuarioId(null);
   };
 
   const getUserInitials = () => {
@@ -959,28 +1050,111 @@ export default function Admin() {
     setCompletarUnidadeId(null);
   }
 
+  // Alertas proativos de qualidade de dados: além do resumo "parado no
+  // tempo" já mostrado no Dashboard (quantas unidades/notícias estão
+  // incompletas no total), aqui a gente destaca o que é NOVO na última
+  // semana — é o que realmente precisa de atenção agora, porque o resto já
+  // é uma pendência "conhecida" que o admin já viu antes.
+  const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
+  const criadaNaUltimaSemana = (item) => item.criado_em && (Date.now() - new Date(item.criado_em).getTime()) < SETE_DIAS_MS;
+
+  const unidadesNovasSemana = adminUnidades.filter(criadaNaUltimaSemana);
+  const unidadesNovasSemTelefone = unidadesNovasSemana.filter(u => !u.telefone);
+  const unidadesNovasSemImagem = unidadesNovasSemana.filter(u => !u.imagens || u.imagens.length === 0);
+  const noticiasNovasSemana = noticias.filter(criadaNaUltimaSemana);
+  const noticiasNovasSemConteudo = noticiasNovasSemana.filter(n => !n.conteudo || !n.conteudo.trim());
+  const correcoesPendentesCount = correcoes.filter(c => c.status === 'pendente').length;
+
+  const alertasProativos = [
+    unidadesNovasSemTelefone.length > 0 && {
+      chave: 'unidades-sem-telefone-semana',
+      mensagem: `${unidadesNovasSemTelefone.length} unidade(s) nova(s) esta semana ainda sem telefone.`,
+      painel: 'completar_cadastro',
+    },
+    unidadesNovasSemImagem.length > 0 && {
+      chave: 'unidades-sem-imagem-semana',
+      mensagem: `${unidadesNovasSemImagem.length} unidade(s) nova(s) esta semana ainda sem foto.`,
+      painel: 'completar_cadastro',
+    },
+    noticiasNovasSemConteudo.length > 0 && {
+      chave: 'noticias-sem-conteudo-semana',
+      mensagem: `${noticiasNovasSemConteudo.length} notícia(s) nova(s) esta semana sem conteúdo completo.`,
+      painel: 'gerenciar_noticias',
+    },
+    correcoesPendentesCount > 0 && {
+      chave: 'correcoes-pendentes',
+      mensagem: `${correcoesPendentesCount} correção(ões) do cidadão aguardando revisão.`,
+      painel: 'correcoes',
+    },
+  ].filter(Boolean);
+
+  const dadosCarregados = !adminUnidadesLoading && !noticiasLoading && !correcoesLoading;
+  if (dadosCarregados && !alertaProativoMostrado) {
+    if (alertasProativos.length > 0) {
+      setToast({
+        message: alertasProativos.length === 1
+          ? `Atenção: ${alertasProativos[0].mensagem}`
+          : `Atenção: ${alertasProativos.length} avisos pendentes no Dashboard (${alertasProativos.map(a => a.mensagem).join(' ')})`,
+        type: 'info',
+      });
+    }
+    setAlertaProativoMostrado(true);
+  }
+
   if (!currentUser) return null;
 
-  const sidebarLinks = [
+  const totalPendenciasQualidade =
+    adminUnidades.filter(u => !u.telefone).length +
+    adminUnidades.filter(u => !u.imagens || u.imagens.length === 0).length;
+
+  const sidebarGroups = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'eventos', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
-    { id: 'gerenciar', label: 'Gerenciar Eventos', icon: Calendar },
-    { id: 'noticias', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
-    { id: 'gerenciar_noticias', label: 'Gerenciar Notícias', icon: Eye },
-    { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : 'Adicionar Unidade', icon: editingUnidadeId ? Pencil : Building2 },
-    { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
-    { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
-    { id: 'completar_cadastro', label: 'Completar Cadastro', icon: ClipboardList },
+    {
+      id: 'grupo-eventos',
+      label: 'Eventos',
+      icon: Megaphone,
+      children: [
+        { id: 'eventos', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
+        { id: 'gerenciar', label: 'Gerenciar Eventos', icon: Calendar },
+      ],
+    },
+    {
+      id: 'grupo-noticias',
+      label: 'Notícias',
+      icon: Newspaper,
+      children: [
+        { id: 'noticias', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
+        { id: 'gerenciar_noticias', label: 'Gerenciar Notícias', icon: Eye },
+      ],
+    },
+    {
+      id: 'grupo-unidades',
+      label: 'Unidades',
+      icon: Building2,
+      children: [
+        { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : 'Adicionar Unidade', icon: editingUnidadeId ? Pencil : Building2 },
+        { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
+        { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
+        { id: 'completar_cadastro', label: 'Completar Cadastro', icon: ClipboardList, badge: totalPendenciasQualidade || null },
+      ],
+    },
     {
       id: 'correcoes',
       label: 'Correções do Cidadão',
       icon: MessageSquareWarning,
       badge: correcoes.filter(c => c.status === 'pendente').length || null,
     },
-    { id: 'usuarios', label: 'Cadastrar Usuário', icon: Users },
-    { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
-    { id: 'analytics', label: 'Analytics de Uso', icon: BarChart3 },
-    { id: 'exportar', label: 'Exportar Dados', icon: Download },
+    { id: 'usuarios', label: 'Gerenciar Usuários', icon: Users },
+    {
+      id: 'grupo-relatorios',
+      label: 'Relatórios',
+      icon: BarChart3,
+      children: [
+        { id: 'analytics', label: 'Analytics de Uso', icon: BarChart3 },
+        { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
+        { id: 'exportar', label: 'Exportar Dados', icon: Download },
+      ],
+    },
   ];
 
   return (
@@ -1029,6 +1203,19 @@ export default function Admin() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActivePanel('dashboard')}
+                title={alertasProativos.length > 0 ? `${alertasProativos.length} aviso(s) pendente(s) — ver Dashboard` : 'Nenhum aviso pendente'}
+                className="relative h-9 w-9 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-all"
+              >
+                <Bell size={16} className="text-white" />
+                {alertasProativos.length > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-amber-400 text-indigo-900 text-[9px] font-bold flex items-center justify-center">
+                    {alertasProativos.length}
+                  </span>
+                )}
+              </button>
               <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-xl px-3 py-1.5">
                 <div className="h-7 w-7 rounded-lg bg-indigo-500 flex items-center justify-center text-white text-xs font-bold">
                   {getUserInitials()}
@@ -1049,77 +1236,20 @@ export default function Admin() {
       </nav>
 
       <div className="pt-16 flex">
-        {/* Sidebar - Desktop */}
-        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 min-h-[calc(100vh-64px)] fixed left-0 top-16 p-4">
-          <div className="flex flex-col gap-1 flex-1">
-            {sidebarLinks.map(({ id, label, icon: Icon, badge }) => (
-              <button
-                key={id}
-                onClick={() => setActivePanel(id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left ${activePanel === id
-                  ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-                  }`}
-              >
-                <Icon size={18} />
-                <span className="flex-1">{label}</span>
-                {badge ? (
-                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {badge}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-
-          <div className="border-t border-slate-100 pt-4 space-y-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-4">Acesso rápido</p>
-            <Link to="/eventos" target="_blank" className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-medium">
-              <ExternalLink size={14} /> Portal de campanhas
-            </Link>
-            <Link to="/noticias" target="_blank" className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-medium">
-              <ExternalLink size={14} /> Portal de notícias
-            </Link>
-            <Link to="/" target="_blank" className="flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-medium">
-              <ExternalLink size={14} /> Mapa da cidade
-            </Link>
-          </div>
-        </aside>
-
-        {/* Mobile Navigation Tabs */}
-        <div className="lg:hidden fixed top-16 left-0 right-0 bg-white border-b border-slate-200 z-30 flex overflow-x-auto">
-          {sidebarLinks.map(({ id, label, icon: Icon, badge }) => (
-            <button
-              key={id}
-              onClick={() => setActivePanel(id)}
-              className={`flex-shrink-0 relative flex items-center justify-center gap-2 py-3 px-4 text-xs font-semibold transition-all border-b-2 ${activePanel === id
-                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                : 'border-transparent text-slate-500'
-                }`}
-            >
-              <Icon size={16} />
-              <span className="hidden sm:inline">{label}</span>
-              {badge ? (
-                <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-                  {badge}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
+        <AdminSidebar
+          groups={sidebarGroups}
+          activePanel={activePanel}
+          setActivePanel={setActivePanel}
+          quickLinks={[
+            { to: '/eventos', label: 'Portal de campanhas' },
+            { to: '/noticias', label: 'Portal de notícias' },
+            { to: '/', label: 'Mapa da cidade' },
+          ]}
+        />
 
         {/* Main Content */}
         <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 mt-12 lg:mt-0">
-          <div className="max-w-4xl mx-auto">
-
-            {/* Alerta de acesso */}
-            <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 animate-slide-down text-sm">
-              <LayoutDashboard className="flex-shrink-0 mt-0.5" size={18} />
-              <div>
-                <strong>Acesso administrativo concedido.</strong>
-                <span className="text-indigo-600"> Você possui controle total sobre alertas, eventos e gerenciamento de usuários.</span>
-              </div>
-            </div>
+          <div className={activePanel === 'dashboard' ? 'max-w-6xl mx-auto' : 'max-w-4xl mx-auto'}>
 
             {/* Panel: Dashboard */}
             {activePanel === 'dashboard' && (() => {
@@ -1173,169 +1303,212 @@ export default function Admin() {
                 },
               ];
 
+              const scoreQualidade = Math.round(
+                qualidadeChecks.reduce((soma, c) => soma + c.percentualCompleto, 0) / qualidadeChecks.length
+              );
+
+              const kpis = [
+                {
+                  chave: 'unidades',
+                  label: 'Unidades cadastradas',
+                  valor: adminUnidades.length,
+                  icon: Building2,
+                  cor: 'bg-indigo-100 text-indigo-600',
+                  painel: 'gerenciar_unidades',
+                },
+                {
+                  chave: 'eventos',
+                  label: 'Eventos / campanhas',
+                  valor: eventos.length,
+                  icon: Megaphone,
+                  cor: 'bg-blue-100 text-blue-600',
+                  painel: 'gerenciar',
+                },
+                {
+                  chave: 'noticias',
+                  label: 'Notícias publicadas',
+                  valor: noticias.length,
+                  icon: Newspaper,
+                  cor: 'bg-cyan-100 text-cyan-600',
+                  painel: 'gerenciar_noticias',
+                },
+                {
+                  chave: 'correcoes',
+                  label: 'Correções pendentes',
+                  valor: correcoesPendentesCount,
+                  icon: MessageSquareWarning,
+                  cor: correcoesPendentesCount > 0 ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600',
+                  painel: 'correcoes',
+                  destaque: correcoesPendentesCount > 0,
+                },
+                {
+                  chave: 'qualidade',
+                  label: 'Qualidade dos dados',
+                  valor: `${scoreQualidade}%`,
+                  icon: FileWarning,
+                  cor: scoreQualidade >= 90 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600',
+                  painel: 'completar_cadastro',
+                },
+                {
+                  chave: 'visualizacoes',
+                  label: 'Visualizações no mapa',
+                  valor: analyticsAgregados.totalVisualizacoes,
+                  icon: BarChart3,
+                  cor: 'bg-fuchsia-100 text-fuchsia-600',
+                  painel: 'analytics',
+                },
+              ];
+
               return (
                 <div className="animate-fade-in space-y-6">
-                  {/* Panorama territorial */}
-                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                      <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <LayoutDashboard className="text-indigo-600" size={20} />
+                  {/* Alertas proativos */}
+                  {alertasProativos.length > 0 && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6 flex items-start gap-3 animate-slide-down">
+                      <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Bell className="text-amber-600" size={20} />
                       </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-800">Panorama territorial</h2>
-                        <p className="text-sm text-slate-500">Visão agregada da rede de saúde cadastrada no sistema.</p>
-                      </div>
-                    </div>
-
-                    {adminUnidadesLoading ? (
-                      <div className="text-center py-6 text-slate-500">
-                        <Loader2 size={20} className="animate-spin mx-auto mb-2" />
-                        Carregando indicadores...
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-                            <span className="text-sm font-semibold text-slate-600">Total de unidades</span>
-                            <span className="text-lg font-extrabold text-slate-800">{adminUnidades.length}</span>
-                          </div>
-                          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-                            <span className="text-sm font-semibold text-slate-600">Eventos/campanhas</span>
-                            <span className="text-lg font-extrabold text-slate-800">{eventos.length}</span>
-                          </div>
-                          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-                            <span className="text-sm font-semibold text-slate-600">Notícias publicadas</span>
-                            <span className="text-lg font-extrabold text-slate-800">{noticias.length}</span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Atividade recente */}
-                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                      <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                        <Clock className="text-slate-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-800">Atividade recente</h2>
-                        <p className="text-sm text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
-                      </div>
-                    </div>
-
-                    {atividadeRecente.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-slate-500 text-sm font-medium">Nenhuma atividade registrada ainda.</p>
-                      </div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {atividadeRecente.map(item => {
-                          const ItemIcon = item.icon;
-                          return (
-                            <li key={item.id}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-amber-800">Avisos que precisam de atenção</p>
+                        <ul className="mt-2 space-y-1">
+                          {alertasProativos.map(a => (
+                            <li key={a.chave}>
                               <button
                                 type="button"
-                                onClick={() => setActivePanel(item.painel)}
-                                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                                onClick={() => setActivePanel(a.painel)}
+                                className="w-full flex items-center justify-between gap-2 text-left text-xs sm:text-sm text-amber-700 hover:text-amber-900 font-medium py-1 group"
                               >
-                                <span className={`h-8 w-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${item.cor}`}>
-                                  <ItemIcon size={15} />
-                                </span>
-                                <span className="flex-1 min-w-0">
-                                  <span className="block text-sm font-semibold text-slate-800 truncate">{item.titulo}</span>
-                                  <span className="block text-xs text-slate-400">{item.tipo} · {tempoRelativo(item.criado_em)}</span>
-                                </span>
-                                <ArrowRight size={14} className="text-slate-300 flex-shrink-0" />
+                                <span>{a.mensagem}</span>
+                                <ArrowRight size={13} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </button>
                             </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-
-                  {/* Qualidade dos dados */}
-                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                      <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                        <FileWarning className="text-amber-600" size={20} />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-800">Qualidade dos dados</h2>
-                        <p className="text-sm text-slate-500">O que falta validar ou completar antes de considerar o cadastro maduro.</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {qualidadeChecks.map(check => {
-                        const CheckIcon = check.icon;
-                        return (
-                          <div key={check.chave} className="border border-slate-100 rounded-xl p-4">
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                              <div className="flex items-start gap-3">
-                                <CheckIcon size={16} className={check.faltando > 0 ? 'text-amber-500 mt-0.5' : 'text-emerald-500 mt-0.5'} />
-                                <div>
-                                  <p className="text-sm font-bold text-slate-800">{check.label}</p>
-                                  <p className="text-xs text-slate-500">{check.descricao}</p>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setActivePanel(check.painel)}
-                                className="flex-shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 whitespace-nowrap"
-                              >
-                                Revisar <ArrowRight size={12} />
-                              </button>
-                            </div>
-                            {check.total > 0 ? (
-                              <>
-                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${check.faltando > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                                    style={{ width: `${check.percentualCompleto}%` }}
-                                  />
-                                </div>
-                                <p className="text-[11px] text-slate-400 mt-1">
-                                  {check.faltando === 0
-                                    ? 'Completo — nenhuma pendência.'
-                                    : `${check.faltando} de ${check.total} pendente(s) (${check.percentualCompleto}% completo)`}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-[11px] text-slate-400">Ainda não há registros para avaliar.</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Correcoes do Cidadao pendentes */}
-                  {!correcoesLoading && !correcoesErro && correcoes.filter(c => c.status === 'pendente').length > 0 && (
-                    <div className="glass-panel rounded-2xl shadow-sm border border-amber-200 bg-amber-50 overflow-hidden">
-                      <div className="flex items-center gap-3 p-5 sm:p-6">
-                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <MessageSquareWarning className="text-amber-600" size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-amber-800">
-                            {correcoes.filter(c => c.status === 'pendente').length} correção(ões) do cidadão aguardando revisão
-                          </p>
-                          <p className="text-xs text-amber-600 mt-0.5">
-                            Cidadãos sinalizaram informações potencialmente incorretas no mapa público.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setActivePanel('correcoes')}
-                          className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
-                        >
-                          Revisar <ArrowRight size={13} />
-                        </button>
+                          ))}
+                        </ul>
                       </div>
                     </div>
                   )}
+
+                  {/* KPIs: visão geral clicável */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {kpis.map(kpi => {
+                      const KpiIcon = kpi.icon;
+                      return (
+                        <button
+                          key={kpi.chave}
+                          type="button"
+                          onClick={() => setActivePanel(kpi.painel)}
+                          className={`text-left glass-panel rounded-2xl border p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all ${kpi.destaque ? 'border-amber-200' : 'border-slate-200'
+                            }`}
+                        >
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center mb-3 ${kpi.cor}`}>
+                            <KpiIcon size={17} />
+                          </div>
+                          <p className="text-xl font-extrabold text-slate-800 leading-none">{kpi.valor}</p>
+                          <p className="text-[11px] font-semibold text-slate-500 mt-1.5 leading-tight">{kpi.label}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    {/* Atividade recente */}
+                    <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                        <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                          <Clock className="text-slate-600" size={20} />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-800">Atividade recente</h2>
+                          <p className="text-xs text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
+                        </div>
+                      </div>
+
+                      {atividadeRecente.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-slate-500 text-sm font-medium">Nenhuma atividade registrada ainda.</p>
+                        </div>
+                      ) : (
+                        <ul className="space-y-1">
+                          {atividadeRecente.map(item => {
+                            const ItemIcon = item.icon;
+                            return (
+                              <li key={item.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActivePanel(item.painel)}
+                                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
+                                >
+                                  <span className={`h-8 w-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${item.cor}`}>
+                                    <ItemIcon size={15} />
+                                  </span>
+                                  <span className="flex-1 min-w-0">
+                                    <span className="block text-sm font-semibold text-slate-800 truncate">{item.titulo}</span>
+                                    <span className="block text-xs text-slate-400">{item.tipo} · {tempoRelativo(item.criado_em)}</span>
+                                  </span>
+                                  <ArrowRight size={14} className="text-slate-300 flex-shrink-0" />
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Qualidade dos dados */}
+                    <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+                      <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                          <FileWarning className="text-amber-600" size={20} />
+                        </div>
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-800">Qualidade dos dados</h2>
+                          <p className="text-xs text-slate-500">O que falta validar ou completar antes de considerar o cadastro maduro.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {qualidadeChecks.map(check => {
+                          const CheckIcon = check.icon;
+                          return (
+                            <div key={check.chave} className="border border-slate-100 rounded-xl p-3.5">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex items-start gap-2.5">
+                                  <CheckIcon size={15} className={check.faltando > 0 ? 'text-amber-500 mt-0.5' : 'text-emerald-500 mt-0.5'} />
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-800">{check.label}</p>
+                                    <p className="text-xs text-slate-500">{check.descricao}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setActivePanel(check.painel)}
+                                  className="flex-shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 whitespace-nowrap"
+                                >
+                                  Revisar <ArrowRight size={12} />
+                                </button>
+                              </div>
+                              {check.total > 0 ? (
+                                <>
+                                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${check.faltando > 0 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                      style={{ width: `${check.percentualCompleto}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-1">
+                                    {check.faltando === 0
+                                      ? 'Completo — nenhuma pendência.'
+                                      : `${check.faltando} de ${check.total} pendente(s) (${check.percentualCompleto}% completo)`}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-[11px] text-slate-400">Ainda não há registros para avaliar.</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -1739,55 +1912,157 @@ export default function Admin() {
 
             {/* Panel: Cadastrar Usuário */}
             {activePanel === 'usuarios' && (
-              <div className="animate-fade-in">
+              <div className="animate-fade-in space-y-6">
                 <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-                  <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                    <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                      <Users className="text-emerald-600" size={20} />
+                  <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <Users className="text-emerald-600" size={20} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800">Contas de usuário</h2>
+                        <p className="text-sm text-slate-500">Reset de senha, desativação temporária e exclusão de contas.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-800">Cadastrar novo usuário</h2>
-                      <p className="text-sm text-slate-500">O novo usuário poderá acessar o sistema imediatamente.</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMostrarCriarUsuario((v) => !v)}
+                      className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
+                    >
+                      <Plus size={16} /> Nova conta
+                    </button>
                   </div>
 
-                  <form onSubmit={handleCreateUser} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nome completo</label>
-                      <input type="text" required value={newUserNome} onChange={e => setNewUserNome(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Ex: Dr. João Silva" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">E-mail corporativo</label>
-                      <input type="email" required value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="joao@votorantim.sp.gov.br" />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {mostrarCriarUsuario && (
+                    <form onSubmit={handleCreateUser} className="space-y-4 mb-6 pb-6 border-b border-slate-100">
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Senha provisória</label>
-                        <input type="password" required value={newUserSenha} onChange={e => setNewUserSenha(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Mín. 6 caracteres" minLength="6" />
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nome completo</label>
+                        <input type="text" required value={newUserNome} onChange={e => setNewUserNome(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Ex: Dr. João Silva" />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Permissão</label>
-                        <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
-                          <option value="saude">🩺 Saúde (Apenas alertas)</option>
-                          <option value="adm">🛡️ Admin (Acesso total)</option>
-                        </select>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">E-mail corporativo</label>
+                        <input type="email" required value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="joao@votorantim.sp.gov.br" />
                       </div>
-                    </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Senha provisória</label>
+                          <input type="password" required value={newUserSenha} onChange={e => setNewUserSenha(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all" placeholder="Mín. 6 caracteres" minLength="6" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Permissão</label>
+                          <select value={newUserRole} onChange={e => setNewUserRole(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                            <option value="saude">🩺 Saúde (Apenas alertas)</option>
+                            <option value="adm">🛡️ Admin (Acesso total)</option>
+                          </select>
+                        </div>
+                      </div>
 
-                    <button type="submit" disabled={userLoading} className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-                      {userLoading ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Criando usuário...
-                        </>
-                      ) : (
-                        <>
-                          <Plus size={18} />
-                          Criar conta
-                        </>
-                      )}
-                    </button>
-                  </form>
+                      <button type="submit" disabled={userLoading} className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                        {userLoading ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Criando usuário...
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={18} />
+                            Criar conta
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+
+                  {usuariosLoading ? (
+                    <p className="text-sm text-slate-400 flex items-center gap-2 py-6 justify-center">
+                      <Loader2 size={16} className="animate-spin" /> Carregando contas...
+                    </p>
+                  ) : usuariosErro ? (
+                    <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl p-4">{usuariosErro}</p>
+                  ) : listaUsuarios.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">Nenhuma conta cadastrada.</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {listaUsuarios.map((u) => {
+                        const ehEuMesmo = u.id === currentUser?.id;
+                        const carregandoAcao = acaoUsuarioId === u.id;
+                        return (
+                          <div
+                            key={u.id}
+                            className={`flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border ${u.desativado ? 'bg-slate-50 border-slate-200 opacity-70' : 'bg-white border-slate-200'}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                                {u.nome || '(sem nome)'}
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${u.role === 'adm' ? 'bg-indigo-100 text-indigo-700' : 'bg-sky-100 text-sky-700'}`}>
+                                  {u.role === 'adm' ? 'Admin' : 'Saúde'}
+                                </span>
+                                {u.desativado && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">Desativada</span>
+                                )}
+                                {ehEuMesmo && (
+                                  <span className="text-[10px] font-semibold text-slate-400">(você)</span>
+                                )}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                            </div>
+
+                            {confirmarExclusaoId === u.id ? (
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-xs font-semibold text-red-600">Excluir permanentemente?</span>
+                                <button
+                                  type="button"
+                                  disabled={carregandoAcao}
+                                  onClick={() => handleExcluirUsuario(u)}
+                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+                                >
+                                  {carregandoAcao ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar'}
+                                </button>
+                                <button type="button" onClick={() => setConfirmarExclusaoId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={carregandoAcao}
+                                  onClick={() => handleResetPassword(u)}
+                                  title="Enviar e-mail de redefinição de senha"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-all disabled:opacity-50"
+                                >
+                                  <KeyRound size={14} /> Redefinir senha
+                                </button>
+                                {!ehEuMesmo && (
+                                  <button
+                                    type="button"
+                                    disabled={carregandoAcao}
+                                    onClick={() => handleToggleStatusUsuario(u)}
+                                    title={u.desativado ? 'Reativar conta' : 'Desativar conta temporariamente'}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all disabled:opacity-50 ${u.desativado ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}
+                                  >
+                                    {u.desativado ? <UserCheck size={14} /> : <UserX size={14} />}
+                                    {u.desativado ? 'Reativar' : 'Desativar'}
+                                  </button>
+                                )}
+                                {!ehEuMesmo && (
+                                  <button
+                                    type="button"
+                                    disabled={carregandoAcao}
+                                    onClick={() => setConfirmarExclusaoId(u.id)}
+                                    title="Excluir permanentemente"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
