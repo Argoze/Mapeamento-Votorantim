@@ -1,6 +1,7 @@
 // Modo escuro: persistido no navegador (mesmo padrão de localStorage já usado
-// pela barra de acessibilidade em lib/a11y.js), com a preferência do sistema
-// operacional como valor inicial quando o usuário nunca escolheu nada.
+// pela barra de acessibilidade em lib/a11y.js). O padrão do site é sempre
+// claro — só vira escuro se o próprio usuário escolher isso pelo ícone de
+// tema; a preferência do sistema operacional não é usada como padrão inicial.
 const THEME_KEY = 'votorantim-saude-tema';
 
 export function getTemaInicial() {
@@ -8,10 +9,7 @@ export function getTemaInicial() {
         const salvo = localStorage.getItem(THEME_KEY);
         if (salvo === 'escuro' || salvo === 'claro') return salvo;
     } catch {
-        // localStorage indisponível (modo privado/restrito) — cai pro padrão do sistema.
-    }
-    if (typeof window !== 'undefined' && window.matchMedia) {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+        // localStorage indisponível (modo privado/restrito) — cai pro padrão claro.
     }
     return 'claro';
 }

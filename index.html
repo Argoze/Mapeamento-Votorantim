@@ -22,8 +22,7 @@
     (function () {
       try {
         var salvo = localStorage.getItem('votorantim-saude-tema');
-        var escuro = salvo ? salvo === 'escuro' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (escuro) document.documentElement.classList.add('dark');
+        if (salvo === 'escuro') document.documentElement.classList.add('dark');
       } catch (e) { }
     })();
   </script>
