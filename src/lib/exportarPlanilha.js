@@ -96,7 +96,7 @@ async function baixarWorkbook(workbook, nomeArquivo) {
 export async function baixarPlanilhaUnica(nomeArquivo, nomeAba, linhas, colunas) {
     const { default: ExcelJS } = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Saúde Votorantim';
+    workbook.creator = 'Votorantim Inteligente';
     workbook.created = new Date();
     montarAba(workbook, nomeAba, linhas, colunas);
     await baixarWorkbook(workbook, nomeArquivo);
@@ -109,7 +109,7 @@ export async function baixarPlanilhaUnica(nomeArquivo, nomeAba, linhas, colunas)
 export async function baixarPlanilhaCompleta(nomeArquivo, abas) {
     const { default: ExcelJS } = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Saúde Votorantim';
+    workbook.creator = 'Votorantim Inteligente';
     workbook.created = new Date();
     for (const aba of abas) {
         montarAba(workbook, aba.nome, aba.linhas, aba.colunas);

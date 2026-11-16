@@ -10,6 +10,7 @@ import OfflineBanner from './components/OfflineBanner';
 
 const Events = lazy(() => import('./pages/Events'));
 const Noticias = lazy(() => import('./pages/Noticias'));
+const Equipamentos = lazy(() => import('./pages/Equipamentos'));
 const Login = lazy(() => import('./pages/Login'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Saude = lazy(() => import('./pages/Saude'));
@@ -33,6 +34,7 @@ function App() {
           <Route path="/" element={<Map />} />
           <Route path="/eventos" element={<Events />} />
           <Route path="/noticias" element={<Noticias />} />
+          <Route path="/equipamentos" element={<Equipamentos />} />
           <Route path="/login" element={<Login />} />
           <Route path="/redefinir-senha" element={<RedefinirSenha />} />
           <Route path="/admin" element={<Admin />} />

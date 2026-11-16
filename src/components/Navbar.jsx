@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MapPin, Megaphone, Newspaper, Menu, X, Heart, Accessibility } from 'lucide-react';
+import { MapPin, Megaphone, Newspaper, Building2, Menu, X, Accessibility } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 export default function Navbar() {
@@ -16,6 +16,7 @@ export default function Navbar() {
 
   const links = [
     { to: '/', label: 'Mapa', icon: MapPin },
+    { to: '/equipamentos', label: 'Equipamentos', icon: Building2 },
     { to: '/eventos', label: 'Campanhas', icon: Megaphone },
     { to: '/noticias', label: 'Notícias', icon: Newspaper },
   ];
@@ -42,12 +43,11 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group min-w-0">
-            <div className="h-9 w-9 bg-gradient-to-br from-indigo-600 to-cyan-500 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow flex-shrink-0">
-              <Heart className="h-5 w-5 text-white" fill="white" />
-            </div>
+            <img src="/logo-votorantim.png" alt="Prefeitura de Votorantim" className="h-10 w-10 object-contain" />
+
             <div className="flex flex-col min-w-0">
               <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-slate-50 leading-tight truncate">
-                Saúde <span className="text-gradient">Votorantim</span>
+                Votorantim <span className="text-gradient">Inteligente</span>
               </span>
               <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 leading-tight hidden sm:block">
                 Rede Municipal de Saúde
@@ -80,15 +80,7 @@ export default function Navbar() {
 
           {/* Ações à direita */}
           <div className="hidden md:flex items-center gap-1">
-            <button
-              type="button"
-              onClick={abrirAcessibilidade}
-              aria-label="Abrir opções de acessibilidade"
-              title="Acessibilidade"
-              className="h-10 w-10 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50/60 dark:hover:bg-indigo-500/10 transition-colors"
-            >
-              <Accessibility size={18} />
-            </button>
+
             <ThemeToggle className="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50/60 dark:hover:bg-indigo-500/10" />
           </div>
 

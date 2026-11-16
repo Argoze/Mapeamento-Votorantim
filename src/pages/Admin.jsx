@@ -2944,11 +2944,7 @@ export default function Admin() {
 
           quickLinks={[
 
-            { to: '/eventos', label: 'Portal de campanhas' },
-
-            { to: '/noticias', label: 'Portal de notícias' },
-
-            { to: '/', label: 'Mapa da cidade' },
+            { to: '/', label: 'Perfil do cidadão' },
 
           ]}
 
@@ -3624,7 +3620,7 @@ export default function Admin() {
 
 
 
-                    <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-start">
 
                       {/* Atividade do Sistema: visualizações reais dos últimos 14 dias */}
 
@@ -3689,158 +3685,6 @@ export default function Admin() {
                             </div>
 
                           </>
-
-                        )}
-
-                      </div>
-
-
-
-                      {/* Ações Rápidas */}
-
-                      <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
-
-                        <div className="flex items-center gap-2 mb-4">
-
-                          <Zap size={16} className="text-amber-500" />
-
-                          <h2 className="text-lg font-bold text-slate-800">Ações Rápidas</h2>
-
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2.5">
-
-                          {acoesRapidas.map((a) => {
-
-                            const AcaoIcon = a.icon;
-
-                            return (
-
-                              <button
-
-                                key={a.chave}
-
-                                type="button"
-
-                                onClick={() => setActivePanel(a.painel)}
-
-                                className="flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all text-center"
-
-                              >
-
-                                <span className={`h-9 w-9 rounded-lg flex items-center justify-center ${a.cor}`}>
-
-                                  <AcaoIcon size={16} />
-
-                                </span>
-
-                                <span className="text-[11px] font-semibold text-slate-600 leading-tight">{a.label}</span>
-
-                              </button>
-
-                            );
-
-                          })}
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-
-                      {/* Atividade recente */}
-
-                      <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
-
-                        <div className="flex items-center justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
-
-                          <div className="flex items-center gap-3">
-
-                            <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
-
-                              <Clock className="text-slate-600" size={20} />
-
-                            </div>
-
-                            <div>
-
-                              <h2 className="text-lg font-bold text-slate-800">Atividades Recentes</h2>
-
-                              <p className="text-xs text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
-
-                            </div>
-
-                          </div>
-
-                        </div>
-
-
-
-                        {atividadeRecente.length === 0 ? (
-
-                          <div className="text-center py-8">
-
-                            <p className="text-slate-500 text-sm font-medium">Nenhuma atividade registrada ainda.</p>
-
-                          </div>
-
-                        ) : (
-
-                          <ul className="relative space-y-1">
-
-                            {atividadeRecente.map((item, idx) => {
-
-                              const ItemIcon = item.icon;
-
-                              return (
-
-                                <li key={item.id} className="relative">
-
-                                  {idx < atividadeRecente.length - 1 && (
-
-                                    <span className="absolute left-[15px] top-8 bottom-0 w-px bg-slate-100" aria-hidden="true" />
-
-                                  )}
-
-                                  <button
-
-                                    type="button"
-
-                                    onClick={() => setActivePanel(item.painel)}
-
-                                    className="relative w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
-
-                                  >
-
-                                    <span className={`h-8 w-8 rounded-full flex items-center justify-center text-white flex-shrink-0 ring-4 ring-white ${item.cor}`}>
-
-                                      <ItemIcon size={14} />
-
-                                    </span>
-
-                                    <span className="flex-1 min-w-0">
-
-                                      <span className="block text-sm font-semibold text-slate-800 truncate">{item.titulo}</span>
-
-                                      <span className="block text-xs text-slate-400">{item.tipo} · {tempoRelativo(item.criado_em)}</span>
-
-                                    </span>
-
-                                    <ArrowRight size={14} className="text-slate-300 flex-shrink-0" />
-
-                                  </button>
-
-                                </li>
-
-                              );
-
-                            })}
-
-                          </ul>
 
                         )}
 
@@ -3919,6 +3763,158 @@ export default function Admin() {
                             <strong>Dica:</strong> mantenha os dados sempre atualizados para melhor atender a população de Votorantim.
 
                           </p>
+
+                        </div>
+
+                      </div>
+
+
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+                        {/* Atividade recente */}
+
+                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+
+                          <div className="flex items-center justify-between gap-3 mb-5 border-b border-slate-100 pb-4">
+
+                            <div className="flex items-center gap-3">
+
+                              <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
+
+                                <Clock className="text-slate-600" size={20} />
+
+                              </div>
+
+                              <div>
+
+                                <h2 className="text-lg font-bold text-slate-800">Atividades Recentes</h2>
+
+                                <p className="text-xs text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
+
+                              </div>
+
+                            </div>
+
+                          </div>
+
+
+
+                          {atividadeRecente.length === 0 ? (
+
+                            <div className="text-center py-8">
+
+                              <p className="text-slate-500 text-sm font-medium">Nenhuma atividade registrada ainda.</p>
+
+                            </div>
+
+                          ) : (
+
+                            <ul className="relative space-y-1">
+
+                              {atividadeRecente.map((item, idx) => {
+
+                                const ItemIcon = item.icon;
+
+                                return (
+
+                                  <li key={item.id} className="relative">
+
+                                    {idx < atividadeRecente.length - 1 && (
+
+                                      <span className="absolute left-[15px] top-8 bottom-0 w-px bg-slate-100" aria-hidden="true" />
+
+                                    )}
+
+                                    <button
+
+                                      type="button"
+
+                                      onClick={() => setActivePanel(item.painel)}
+
+                                      className="relative w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors text-left"
+
+                                    >
+
+                                      <span className={`h-8 w-8 rounded-full flex items-center justify-center text-white flex-shrink-0 ring-4 ring-white ${item.cor}`}>
+
+                                        <ItemIcon size={14} />
+
+                                      </span>
+
+                                      <span className="flex-1 min-w-0">
+
+                                        <span className="block text-sm font-semibold text-slate-800 truncate">{item.titulo}</span>
+
+                                        <span className="block text-xs text-slate-400">{item.tipo} · {tempoRelativo(item.criado_em)}</span>
+
+                                      </span>
+
+                                      <ArrowRight size={14} className="text-slate-300 flex-shrink-0" />
+
+                                    </button>
+
+                                  </li>
+
+                                );
+
+                              })}
+
+                            </ul>
+
+                          )}
+
+                        </div>
+
+
+
+                        {/* Ações Rápidas */}
+
+                        <div className="glass-panel p-6 rounded-2xl shadow-sm border border-slate-200">
+
+                          <div className="flex items-center gap-2 mb-4">
+
+                            <Zap size={16} className="text-amber-500" />
+
+                            <h2 className="text-lg font-bold text-slate-800">Ações Rápidas</h2>
+
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2.5">
+
+                            {acoesRapidas.map((a) => {
+
+                              const AcaoIcon = a.icon;
+
+                              return (
+
+                                <button
+
+                                  key={a.chave}
+
+                                  type="button"
+
+                                  onClick={() => setActivePanel(a.painel)}
+
+                                  className="flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all text-center"
+
+                                >
+
+                                  <span className={`h-9 w-9 rounded-lg flex items-center justify-center ${a.cor}`}>
+
+                                    <AcaoIcon size={16} />
+
+                                  </span>
+
+                                  <span className="text-[11px] font-semibold text-slate-600 leading-tight">{a.label}</span>
+
+                                </button>
+
+                              );
+
+                            })}
+
+                          </div>
 
                         </div>
 

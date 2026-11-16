@@ -906,7 +906,7 @@ export default function Map() {
                   {!localizacaoBuscada && (
                     <div className="bg-indigo-50/70 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/30 rounded-xl p-2.5 text-[11px] text-indigo-700 dark:text-indigo-300 leading-snug">
                       💡 Esta lista mostra as unidades mais perto do centro de Votorantim. Digite seu endereço ou clique em{' '}
-                      <strong>Minha Localização</strong> para ver a distância até você.
+                      <strong>equipamentos próximos</strong> para ver a distância até você.
                     </div>
                   )}
 

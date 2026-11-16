@@ -19,7 +19,7 @@ export default defineConfig({
       ],
       manifest: {
         name: 'Mapeamento Votorantim',
-        short_name: 'Saúde Votorantim',
+        short_name: 'Votorantim Inteligente',
         description: 'Mapeamento interativo da rede municipal de saúde e serviços públicos de Votorantim',
         start_url: '/',
         display: 'standalone',

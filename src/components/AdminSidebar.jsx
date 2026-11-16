@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ExternalLink, Heart, Shield } from 'lucide-react';
+import { ChevronDown, ExternalLink, Shield } from 'lucide-react';
 
 // Menu lateral do /admin — redesenhado para o visual "sidebar escura de
 // altura total + topbar clara dentro do conteúdo" (ver Admin.jsx, que monta
@@ -84,8 +84,8 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
             <aside className="hidden lg:flex fixed top-0 left-0 bottom-0 w-64 bg-gradient-to-b from-indigo-900 via-indigo-950 to-purple-950 flex-col z-40">
                 {/* Marca */}
                 <div className="flex items-center gap-2.5 px-5 h-16 flex-shrink-0 border-b border-white/10">
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-fuchsia-400 via-indigo-400 to-cyan-400 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <Heart className="h-4 w-4 text-white" fill="currentColor" />
+                    <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+                        <img src="/logo-votorantim.png" alt="Prefeitura de Votorantim" className="h-10 w-10 object-contain" />
                     </div>
                     <div className="min-w-0">
                         <p className="text-white font-extrabold text-sm leading-tight truncate">Votorantim Inteligente</p>
@@ -167,20 +167,16 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
                     })}
                 </div>
 
-                {/* Acesso rápido (links pro site público) */}
+                {/* Acesso rápido: visão pública consolidada em um único botão */}
                 {quickLinks.length > 0 && (
                     <div className="px-3 pt-2 pb-1 border-t border-white/10 flex-shrink-0">
-                        <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wide text-indigo-400">Acesso rápido</p>
-                        {quickLinks.map((link) => (
-                            <Link
-                                key={link.to}
-                                to={link.to}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-indigo-200 hover:bg-white/10 hover:text-white transition-all"
-                            >
-                                <ExternalLink size={13} className="flex-shrink-0" />
-                                <span className="truncate">{link.label}</span>
-                            </Link>
-                        ))}
+                        <Link
+                            to={quickLinks[0].to}
+                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-indigo-100 bg-white/10 hover:bg-white/15 hover:text-white transition-all"
+                        >
+                            <ExternalLink size={14} className="flex-shrink-0" />
+                            <span className="truncate">{quickLinks[0].label}</span>
+                        </Link>
                     </div>
                 )}
 
