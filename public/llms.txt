@@ -1,0 +1,16 @@
+# Mapeamento Territorial Inteligente de Votorantim
+
+> Mapa interativo da rede municipal de saúde de Votorantim-SP: localização de UBSs, ESFs, hospitais e outros equipamentos públicos, além de eventos e notícias da Secretaria de Saúde.
+
+Site público da Prefeitura de Votorantim-SP para que cidadãos encontrem a unidade de saúde mais próxima, consultem o calendário de vacinação e campanhas ativas, e acompanhem notícias e eventos municipais.
+
+## Páginas
+
+- [Mapa (início)](https://mapeamento-votorantim.vercel.app/): busca e visualização dos equipamentos públicos no mapa
+- [Equipamentos](https://mapeamento-votorantim.vercel.app/equipamentos): lista filtrável de UBSs, ESFs, hospitais, escolas e demais equipamentos
+- [Eventos](https://mapeamento-votorantim.vercel.app/eventos): campanhas e eventos de saúde pública
+- [Notícias](https://mapeamento-votorantim.vercel.app/noticias): notícias da Secretaria de Saúde de Votorantim
+
+## Optional
+
+- [Repositório do projeto](https://github.com/Argoze/Mapeamento-Votorantim)

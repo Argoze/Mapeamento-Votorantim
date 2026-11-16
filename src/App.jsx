@@ -1,13 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-// A home (Mapa) fica com import normal — é a primeira tela que o cidadão vê.
-// Todas as outras páginas carregam sob demanda (code-splitting por rota),
-// principalmente /admin e /saude: são telas grandes, usadas só pela equipe
-// interna, que antes eram baixadas por TODO cidadão que só queria ver o
-// mapa. Isso reduz bastante o tamanho do primeiro carregamento.
-import Map from './pages/Map';
 import OfflineBanner from './components/OfflineBanner';
 
+const Map = lazy(() => import('./pages/Map'));
 const Events = lazy(() => import('./pages/Events'));
 const Noticias = lazy(() => import('./pages/Noticias'));
 const Equipamentos = lazy(() => import('./pages/Equipamentos'));

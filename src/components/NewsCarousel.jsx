@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Newspaper, Clock, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function timeAgo(dateStr) {
@@ -16,9 +16,19 @@ function timeAgo(dateStr) {
 export default function NewsCarousel({ noticias = [] }) {
   const [current, setCurrent] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [carregados, setCarregados] = useState(() => new Set([0, 1]));
+  const [currentAnterior, setCurrentAnterior] = useState(0);
 
   const destaques = noticias.filter(n => n.destaque);
   const items = destaques.length > 0 ? destaques : noticias.slice(0, 5);
+
+  if (current !== currentAnterior) {
+    setCurrentAnterior(current);
+    const proximo = (current + 1) % items.length;
+    if (!carregados.has(current) || !carregados.has(proximo)) {
+      setCarregados((prev) => new Set(prev).add(current).add(proximo));
+    }
+  }
 
   const nextSlide = useCallback(() => {
     if (items.length <= 1) return;
@@ -59,10 +69,11 @@ export default function NewsCarousel({ noticias = [] }) {
               }`}
           >
             {/* Background Image or Gradient */}
-            {noticia.imagem_url ? (
+            {noticia.imagem_url && carregados.has(index) ? (
               <img
                 src={noticia.imagem_url}
                 alt={noticia.titulo}
+                loading={index === 0 ? 'eager' : 'lazy'}
                 className="absolute inset-0 w-full h-full object-cover"
               />
             ) : (

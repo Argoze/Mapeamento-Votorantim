@@ -301,6 +301,8 @@ export default function Noticias() {
                           <img
                             src={noticia.imagem_url}
                             alt={noticia.titulo}
+                            loading={index < 3 ? 'eager' : 'lazy'}
+                            decoding="async"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         </div>

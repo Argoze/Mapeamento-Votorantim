@@ -1,0 +1,17 @@
+{
+  "specVersion": "0.91",
+  "entries": [
+    {
+      "identifier": "urn:air:mapeamento-votorantim.vercel.app:site:mapa-votorantim",
+      "displayName": "Mapeamento Territorial Inteligente de Votorantim",
+      "type": "text/html",
+      "url": "https://mapeamento-votorantim.vercel.app/",
+      "representativeQueries": [
+        "onde fica a UBS mais próxima em Votorantim",
+        "horário de vacinação em Votorantim",
+        "equipamentos públicos de saúde em Votorantim",
+        "notícias da Secretaria de Saúde de Votorantim"
+      ]
+    }
+  ]
+}

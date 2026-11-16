@@ -132,5 +132,21 @@ export default defineConfig({
       '@tailwindcss/oxide',
       '@tailwindcss/oxide-win32-x64-msvc'
     ]
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Agrupa dependências pesadas e que mudam pouco em chunks próprios,
+        // separados do código das páginas. Isso não reduz o tamanho total,
+        // mas melhora o cache: um deploy que só muda uma página não invalida
+        // o cache do navegador pra Leaflet/Supabase/ícones, que continuam
+        // intactos de uma visita pra outra.
+        manualChunks: {
+          leaflet: ['leaflet', 'react-leaflet'],
+          supabase: ['@supabase/supabase-js'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
+  },
 });

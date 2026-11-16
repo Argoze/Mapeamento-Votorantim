@@ -571,6 +571,8 @@ export default function Map() {
           <img
             src={configHome.hero_imagem_url}
             alt="Votorantim"
+            fetchPriority="high"
+            decoding="async"
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
         ) : (
@@ -686,7 +688,7 @@ export default function Map() {
           >
             {destaque.tipo_fundo === 'imagem' && destaque.imagem_url ? (
               <>
-                <img src={destaque.imagem_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <img src={destaque.imagem_url} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
               </>
             ) : (
