@@ -77,9 +77,9 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
       {imagens.length > 0 ? (
         <div className="relative">
           <img
+            key={`${unidade.id}-${imagemAtiva}`}
             src={imagens[imagemAtiva]}
             alt={unidade.nome}
-            decoding="async"
             className="w-full h-44 sm:h-40 object-cover rounded-t-2xl"
           />
           {temVariasImagens && (
