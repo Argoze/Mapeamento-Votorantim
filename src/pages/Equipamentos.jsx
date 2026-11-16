@@ -265,10 +265,17 @@ export default function Equipamentos() {
 
                     {/* KPIs */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
+                        <button
+                            type="button"
+                            onClick={() => setCategoriaAtiva('Todas')}
+                            className={`text-left rounded-2xl p-5 border shadow-sm transition-all ${categoriaAtiva === 'Todas'
+                                ? 'bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-indigo-200'
+                                }`}
+                        >
                             <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{total}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Equipamentos no total</p>
-                        </div>
+                        </button>
                         <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
                             <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{porCategoria.length}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Categorias diferentes</p>

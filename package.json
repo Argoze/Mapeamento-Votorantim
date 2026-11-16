@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postbuild": "node scripts/generate-sw.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -36,7 +35,6 @@
     "tailwindcss": "^4.1.18",
     "vite": "^6.4.5",
     "vite-plugin-pwa": "^2.0.0",
-    "workbox-build": "^7.4.1",
     "workbox-window": "^7.4.1"
   }
 }
