@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
@@ -7,6 +7,7 @@ import { Building2, MapPin, Layers, PieChart } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
+import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
 import { registrarPaginaVista } from '../lib/metricas';
 
 // Página pública "Equipamentos": visão consolidada de todos os equipamentos
@@ -64,22 +65,78 @@ function getUnitType(unidade) {
     if (categoria !== 'Saúde') {
         return (
             {
-                Educação: { label: 'Educação', cor: '#7c3aed' },
-                Cultura: { label: 'Cultura', cor: '#db2777' },
-                Governo: { label: 'Governo', cor: '#475569' },
-                Lazer: { label: 'Lazer', cor: '#16a34a' },
-                Biblioteca: { label: 'Biblioteca', cor: '#0891b2' },
-            }[categoria] || { label: categoria, cor: '#475569' }
+                Educação: { label: 'Educação', cor: '#7c3aed', color: 'purple' },
+                Cultura: { label: 'Cultura', cor: '#db2777', color: 'pink' },
+                Governo: { label: 'Governo', cor: '#475569', color: 'slate' },
+                Lazer: { label: 'Lazer', cor: '#16a34a', color: 'emerald' },
+                Biblioteca: { label: 'Biblioteca', cor: '#0891b2', color: 'cyan' },
+            }[categoria] || { label: categoria, cor: '#475569', color: 'slate' }
         );
     }
     const n = (unidade.nome || '').toLowerCase();
-    if (n.includes('hospital')) return { label: 'Hospital', cor: '#dc2626' };
-    if (n.includes('upa')) return { label: 'UPA', cor: '#f59e0b' };
-    if (n.includes('esf')) return { label: 'ESF', cor: '#059669' };
-    return { label: 'UBS', cor: '#2563eb' };
+    if (n.includes('hospital')) return { label: 'Hospital', cor: '#dc2626', color: 'red' };
+    if (n.includes('upa')) return { label: 'UPA', cor: '#f59e0b', color: 'orange' };
+    if (n.includes('esf')) return { label: 'ESF', cor: '#059669', color: 'green' };
+    return { label: 'UBS', cor: '#2563eb', color: 'blue' };
 }
 
-function getUnitIcon(unidade) {
+function badgeClass(color) {
+    const map = {
+        red: 'bg-red-500',
+        orange: 'bg-amber-500',
+        green: 'bg-emerald-500',
+        blue: 'bg-blue-500',
+        purple: 'bg-purple-600',
+        pink: 'bg-pink-600',
+        slate: 'bg-slate-600',
+        emerald: 'bg-emerald-600',
+        cyan: 'bg-cyan-600',
+    };
+    return map[color] || 'bg-blue-500';
+}
+
+function buildWhatsAppShareUrl(unidade) {
+    const rotaUrl = `https://www.google.com/maps/dir/?api=1&destination=${unidade.lat},${unidade.lng}`;
+    const texto = `${unidade.nome}\n${unidade.endereco}\nComo chegar: ${rotaUrl}`;
+    return `https://wa.me/?text=${encodeURIComponent(texto)}`;
+}
+
+const FAVORITOS_KEY = 'votorantim-saude-favoritos';
+function loadFavoritos() {
+    try {
+        const raw = localStorage.getItem(FAVORITOS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+function saveFavoritos(ids) {
+    try {
+        localStorage.setItem(FAVORITOS_KEY, JSON.stringify(ids));
+    } catch { }
+}
+
+let selectedIconSingleton = null;
+function createSelectedIcon() {
+    if (!selectedIconSingleton) {
+        selectedIconSingleton = L.divIcon({
+            className: 'custom-marker-selecionado',
+            html: `<div class="custom-marker-selecionado-pin">
+      <svg width="40" height="54" viewBox="0 0 40 54" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));">
+        <path d="M20 0C8.95 0 0 8.95 0 20c0 15 20 34 20 34s20-19 20-34C40 8.95 31.05 0 20 0z" fill="#EA4335"/>
+        <circle cx="20" cy="20" r="7.5" fill="#ffffff"/>
+      </svg>
+    </div>`,
+            iconSize: [40, 54],
+            iconAnchor: [20, 54],
+            popupAnchor: [0, -54],
+        });
+    }
+    return selectedIconSingleton;
+}
+
+function getUnitIcon(unidade, selecionado = false) {
+    if (selecionado) return createSelectedIcon();
     const { label } = getUnitType(unidade);
     const { color, emoji } = EMOJI_POR_TIPO[label] || EMOJI_POR_TIPO.Governo;
     return createCustomIcon(color, emoji);
@@ -115,6 +172,8 @@ export default function Equipamentos() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [categoriaAtiva, setCategoriaAtiva] = useState('Todas');
+    const [unidadeSelecionada, setUnidadeSelecionada] = useState(null);
+    const [favoritos, setFavoritos] = useState(loadFavoritos);
 
     useEffect(() => {
         async function fetchUnidades() {
@@ -129,6 +188,17 @@ export default function Equipamentos() {
         }
         fetchUnidades();
         registrarPaginaVista('/equipamentos');
+
+        // Mantém os números em dia sem precisar recarregar a página: qualquer
+        // cadastro, edição ou remoção de unidade refaz a contagem na hora.
+        const canal = supabase
+            .channel('equipamentos-unidades')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'unidades' }, fetchUnidades)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(canal);
+        };
     }, []);
 
     const porCategoria = useMemo(() => {
@@ -146,8 +216,23 @@ export default function Equipamentos() {
 
     const unidadesFiltradas = useMemo(() => {
         if (categoriaAtiva === 'Todas') return unidades;
+        if (categoriaAtiva === 'Saúde') return unidades.filter((u) => (u.categoria || 'Saúde') === 'Saúde');
         return unidades.filter((u) => getUnitType(u).label === categoriaAtiva);
     }, [unidades, categoriaAtiva]);
+
+    const totalSaude = unidades.filter((u) => (u.categoria || 'Saúde') === 'Saúde').length;
+
+    const alternarCategoria = (valor) => {
+        setCategoriaAtiva((atual) => (atual === valor ? 'Todas' : valor));
+    };
+
+    const toggleFavorito = (id) => {
+        setFavoritos((prev) => {
+            const next = prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id];
+            saveFavoritos(next);
+            return next;
+        });
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -188,24 +273,37 @@ export default function Equipamentos() {
                             <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{porCategoria.length}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Categorias diferentes</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm col-span-2 sm:col-span-1">
+                        <button
+                            type="button"
+                            disabled={!porCategoria[0]}
+                            onClick={() => porCategoria[0] && alternarCategoria(porCategoria[0].label)}
+                            className={`text-left rounded-2xl p-5 border shadow-sm col-span-2 sm:col-span-1 transition-all ${categoriaAtiva === porCategoria[0]?.label
+                                ? 'bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-indigo-200'
+                                }`}
+                        >
                             <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{porCategoria[0]?.total ?? 0}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
                                 Maior categoria{porCategoria[0] ? ` · ${porCategoria[0].label}` : ''}
                             </p>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">
-                                {unidades.filter((u) => (u.categoria || 'Saúde') === 'Saúde').length}
-                            </p>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => alternarCategoria('Saúde')}
+                            className={`text-left rounded-2xl p-5 border shadow-sm transition-all ${categoriaAtiva === 'Saúde'
+                                ? 'bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-indigo-200'
+                                }`}
+                        >
+                            <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{totalSaude}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Unidades de saúde</p>
-                        </div>
+                        </button>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mt-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mt-6">
                         {/* Mapa com todos os equipamentos */}
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between gap-3 p-5 pb-0">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[420px] lg:h-auto">
+                            <div className="flex items-center justify-between gap-3 p-5 pb-0 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <MapPin size={16} className="text-indigo-500" />
                                     <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Mapa de equipamentos</h2>
@@ -214,21 +312,34 @@ export default function Equipamentos() {
                                     {unidadesFiltradas.length} no mapa
                                 </span>
                             </div>
-                            <div className="h-[420px] mt-4">
+                            <div className="relative flex-1 mt-4 min-h-[320px]">
                                 <MapContainer center={CENTRO_VOTORANTIM} zoom={13} scrollWheelZoom className="h-full w-full">
                                     <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
                                     {unidadesFiltradas
                                         .filter((u) => u.lat && u.lng)
-                                        .map((u) => (
-                                            <Marker key={u.id} position={[u.lat, u.lng]} icon={getUnitIcon(u)}>
-                                                <Popup>
-                                                    <p className="font-bold text-sm">{u.nome}</p>
-                                                    <p className="text-xs text-slate-500">{getUnitType(u).label}</p>
-                                                    {u.endereco && <p className="text-xs mt-1">{u.endereco}</p>}
-                                                </Popup>
-                                            </Marker>
-                                        ))}
+                                        .map((u) => {
+                                            const isSelecionada = unidadeSelecionada?.id === u.id;
+                                            return (
+                                                <Marker
+                                                    key={u.id}
+                                                    position={[u.lat, u.lng]}
+                                                    icon={getUnitIcon(u, isSelecionada)}
+                                                    zIndexOffset={isSelecionada ? 1000 : 0}
+                                                    eventHandlers={{ click: () => setUnidadeSelecionada(u) }}
+                                                />
+                                            );
+                                        })}
                                 </MapContainer>
+
+                                <UnidadeDetalheModal
+                                    unidade={unidadeSelecionada}
+                                    tipoInfo={unidadeSelecionada ? getUnitType(unidadeSelecionada) : { label: '', color: 'blue' }}
+                                    badgeClass={badgeClass}
+                                    isFavorito={unidadeSelecionada ? favoritos.includes(unidadeSelecionada.id) : false}
+                                    onToggleFavorito={toggleFavorito}
+                                    buildWhatsAppShareUrl={buildWhatsAppShareUrl}
+                                    onClose={() => setUnidadeSelecionada(null)}
+                                />
                             </div>
                         </div>
 
@@ -265,7 +376,7 @@ export default function Equipamentos() {
                                             <button
                                                 key={cat.label}
                                                 type="button"
-                                                onClick={() => setCategoriaAtiva(ativa ? 'Todas' : cat.label)}
+                                                onClick={() => alternarCategoria(cat.label)}
                                                 className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${ativa ? 'bg-slate-50 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                                     }`}
                                             >
