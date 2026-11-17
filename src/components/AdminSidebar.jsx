@@ -19,7 +19,14 @@ import { ChevronDown, ExternalLink, Menu, Shield, X } from 'lucide-react';
 // a regra de lint do projeto que proíbe setState dentro de useEffect).
 // Clicar no cabeçalho de um grupo alterna (abre/fecha) independente disso,
 // só pra permitir espiar os itens sem precisar navegar pra lá.
-export default function AdminSidebar({ groups, activePanel, setActivePanel, quickLinks = [] }) {
+// `brandSubtitle` e `onLogoClick` existem pra este MESMO componente também
+// vestir o painel /saude (equipe de Saúde) com a identidade visual do /admin
+// — mesma sidebar, mesmas cores, só muda o rótulo embaixo do logo e o painel
+// de destino do clique na marca (que no /admin sempre é 'dashboard', mas
+// /saude não tem esse painel). Os valores padrão preservam o comportamento
+// de sempre do /admin sem precisar mudar nada nos lugares que já usam este
+// componente.
+export default function AdminSidebar({ groups, activePanel, setActivePanel, quickLinks = [], brandSubtitle = 'Painel administrativo', onLogoClick }) {
     const [manualToggle, setManualToggle] = useState(() => new Set());
     const [previousActivePanel, setPreviousActivePanel] = useState(activePanel);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -70,6 +77,8 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
 
     const itemBadge = (item) => item.badge || (item.children ? item.children.reduce((soma, c) => soma + (c.badge || 0), 0) : 0);
 
+    const handleLogoClick = onLogoClick || (() => setActivePanel('dashboard'));
+
     const corItem = (ativo) =>
         ativo
             ? 'bg-white/15 text-white shadow-sm'
@@ -91,14 +100,14 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
             <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-indigo-950 shadow-lg h-14 flex items-center justify-between px-4">
                 <button
                     type="button"
-                    onClick={() => setActivePanel('dashboard')}
-                    title="Ir para o Dashboard"
+                    onClick={handleLogoClick}
+                    title="Ir para o início"
                     className="flex items-center gap-2.5 min-w-0 -mx-1 px-1 py-1 rounded-lg hover:bg-white/10 transition-colors"
                 >
                     <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
                         <img src="/logo-votorantim.png" alt="Prefeitura de Votorantim" className="h-9 w-9 object-contain" />
                     </div>
-                    <p className="text-white font-extrabold text-sm leading-tight truncate">Painel administrativo</p>
+                    <p className="text-white font-extrabold text-sm leading-tight truncate">{brandSubtitle}</p>
                 </button>
                 <button
                     type="button"
@@ -121,7 +130,7 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
                     className="lg:hidden fixed inset-0 z-[60] bg-indigo-950 flex flex-col animate-fade-in"
                 >
                     <div className="flex items-center justify-between px-4 h-14 border-b border-white/10 flex-shrink-0">
-                        <p className="text-white font-extrabold text-sm">Painel administrativo</p>
+                        <p className="text-white font-extrabold text-sm">{brandSubtitle}</p>
                         <button
                             type="button"
                             onClick={() => setMobileMenuOpen(false)}
@@ -227,8 +236,8 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
                 {/* Marca */}
                 <button
                     type="button"
-                    onClick={() => setActivePanel('dashboard')}
-                    title="Ir para o Dashboard"
+                    onClick={handleLogoClick}
+                    title="Ir para o início"
                     className="flex items-center gap-2.5 px-5 h-16 flex-shrink-0 border-b border-white/10 hover:bg-white/5 transition-colors text-left"
                 >
                     <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
@@ -236,7 +245,7 @@ export default function AdminSidebar({ groups, activePanel, setActivePanel, quic
                     </div>
                     <div className="min-w-0">
                         <p className="text-white font-extrabold text-sm leading-tight truncate">Votorantim Inteligente</p>
-                        <p className="text-indigo-300 text-[10px] leading-tight truncate">Painel administrativo</p>
+                        <p className="text-indigo-300 text-[10px] leading-tight truncate">{brandSubtitle}</p>
                     </div>
                 </button>
 

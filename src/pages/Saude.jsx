@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, checkAuth, logout, registrarAuditoria } from '../lib/supabase';
 import {
-  Megaphone, Stethoscope, LogOut, Calendar, Trash2, Pencil, XCircle,
+  Megaphone, LogOut, Calendar, Trash2, Pencil, XCircle,
   Plus, ExternalLink, MapPin, Loader2, Newspaper, Star, Eye, Timer
 } from 'lucide-react';
 import Toast from '../components/Toast';
@@ -10,6 +10,11 @@ import DateTimePickerModal from '../components/DateTimePickerModal';
 import ImageUpload from '../components/ImageUpload';
 import PublishPreviewModal from '../components/PublishPreviewModal';
 import CampanhaTemplateBar from '../components/CampanhaTemplateBar';
+// Mesma sidebar do /admin — reusada aqui pra que /saude siga o mesmo padrão
+// visual (marca, cores, navegação em sidebar/menu hambúrguer) em vez do
+// antigo navbar azul plano + abas horizontais, que destoava do resto do
+// sistema. Só o que o papel "Saúde" pode acessar muda (4 itens, sem grupos).
+import AdminSidebar from '../components/AdminSidebar';
 
 export default function Saude() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -307,7 +312,10 @@ export default function Saude() {
 
   if (!currentUser) return null;
 
-  const tabs = [
+  // Mesmo formato de `groups` que o AdminSidebar espera no /admin (array de
+  // { id, label, icon }), só que sem grupos/sub-itens — a conta Saúde só tem
+  // estas 4 telas, então uma lista plana já é suficiente.
+  const sidebarGroupsSaude = [
     { id: 'publicar', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
     { id: 'meus', label: `Meus Eventos (${meusEventos.length})`, icon: Calendar },
     { id: 'noticia', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
@@ -346,66 +354,61 @@ export default function Saude() {
         data={{ titulo: noticiaTitle, resumo: noticiaResumo, conteudo: noticiaConteudo, imagens: noticiaImagemUrl, destaque: noticiaDestaque }}
       />
 
-      {/* Navbar */}
-      <nav className="bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg fixed top-0 left-0 right-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-white/15 rounded-xl flex items-center justify-center">
-                <Stethoscope className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <span className="text-white font-bold text-lg">Painel da Saúde</span>
-                <span className="hidden sm:block text-blue-200 text-xs">Publicação de alertas, campanhas e notícias</span>
-              </div>
+      <div className="flex min-h-screen">
+        <AdminSidebar
+          groups={sidebarGroupsSaude}
+          activePanel={activeTab}
+          setActivePanel={setActiveTab}
+          brandSubtitle="Painel da Saúde"
+          onLogoClick={() => setActiveTab('publicar')}
+          quickLinks={[
+            { to: '/eventos', label: 'Portal de campanhas' },
+            { to: '/noticias', label: 'Portal de notícias' },
+            { to: '/', label: 'Mapa da cidade' },
+          ]}
+        />
+
+        {/* Coluna do conteúdo: topbar fixa + painéis */}
+        <div className="flex-1 lg:ml-64 flex flex-col min-h-screen mt-14 lg:mt-0 overflow-x-hidden">
+          {/* Topbar */}
+          <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4 flex-shrink-0">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-slate-800 truncate">Painel da Saúde</h1>
+              <p className="hidden sm:block text-xs text-slate-400 truncate">Publicação de alertas, campanhas e notícias</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-xl px-3 py-1.5">
-                <div className="h-7 w-7 rounded-lg bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-slate-200">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                   {getUserInitials()}
                 </div>
-                <span className="text-blue-100 text-sm font-medium">{currentUser.email}</span>
+                <div className="leading-tight">
+                  <p className="text-sm font-bold text-slate-800 truncate max-w-[140px]">{currentUser.email}</p>
+                  <p className="text-xs text-slate-400">Equipe de Saúde</p>
+                </div>
               </div>
               <button
                 id="btn-logout-saude"
                 onClick={logout}
-                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                title="Sair"
+                className="h-10 w-10 bg-slate-50 hover:bg-red-50 hover:text-red-600 text-slate-500 border border-slate-200 rounded-xl flex items-center justify-center transition-all"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">Sair</span>
               </button>
             </div>
-          </div>
-        </div>
-      </nav>
+          </header>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
-        {/* Tabs */}
-        <div className="flex items-center gap-2 mb-6 animate-slide-down overflow-x-auto pb-1">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === id
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                }`}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Content */}
+              <div className="lg:col-span-2">
             {/* Tab: Publicar Evento */}
             {activeTab === 'publicar' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
-                <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingEventoId ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${editingEventoId ? 'bg-amber-100' : 'bg-blue-100'}`}>
                       {editingEventoId ? <Pencil className="text-amber-600" size={20} /> : <Megaphone className="text-blue-600" size={20} />}
                     </div>
                     <div>
@@ -530,7 +533,7 @@ export default function Saude() {
             {activeTab === 'meus' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
                 <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                  <div className="h-10 w-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <div className="h-10 w-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Calendar className="text-orange-600" size={20} />
                   </div>
                   <div>
@@ -555,79 +558,75 @@ export default function Saude() {
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                     {meusEventos.map(evento => (
-                      <div key={evento.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingEventoId === evento.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
-                                }`}>
-                                {evento.tipo}
+                      <div key={evento.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all flex flex-col gap-3 ${editingEventoId === evento.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+                              }`}>
+                              {evento.tipo}
+                            </span>
+                            {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                                <Timer size={10} /> Agendado
                               </span>
-                              {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1">
-                                  <Timer size={10} /> Agendado
-                                </span>
-                              )}
-                              {evento.status === 'pendente' ? (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
-                              ) : (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
-                              )}
-                              <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
-                            </div>
-                            <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
-                            <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400">
-                              <span className="flex items-center gap-1"><Calendar size={11} /> {evento.data_evento}</span>
-                              <span className="flex items-center gap-1"><MapPin size={11} /> {evento.local_evento}</span>
-                              {evento.imagens && evento.imagens.length > 0 && (
-                                <span className="text-purple-500 font-bold">📷 {evento.imagens.length} img</span>
-                              )}
-                              {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
-                                <span className="flex items-center gap-1 text-indigo-500 font-semibold">
-                                  <Timer size={11} /> publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex-shrink-0 flex items-center gap-1.5">
-                            {showDeleteConfirm === evento.id ? (
-                              <div className="flex items-center gap-2 animate-fade-in">
-                                <button
-                                  onClick={() => handleDeleteEvento(evento.id)}
-                                  disabled={deleteLoading === evento.id}
-                                  className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
-                                >
-                                  {deleteLoading === evento.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                  Confirmar
-                                </button>
-                                <button
-                                  onClick={() => setShowDeleteConfirm(null)}
-                                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
+                            )}
+                            {evento.status === 'pendente' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
                             ) : (
-                              <>
-                                <button
-                                  onClick={() => handleEditEvento(evento)}
-                                  className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
-                                  title="Editar evento"
-                                >
-                                  <Pencil size={16} />
-                                </button>
-                                <button
-                                  onClick={() => setShowDeleteConfirm(evento.id)}
-                                  className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
-                                  title="Excluir evento"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
+                            )}
+                            <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
+                          </div>
+                          <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
+                          <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400 flex-wrap">
+                            <span className="flex items-center gap-1"><Calendar size={11} /> {evento.data_evento}</span>
+                            <span className="flex items-center gap-1"><MapPin size={11} /> {evento.local_evento}</span>
+                            {evento.imagens && evento.imagens.length > 0 && (
+                              <span className="text-purple-500 font-bold">📷 {evento.imagens.length} img</span>
+                            )}
+                            {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
+                              <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+                                <Timer size={11} /> publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
                             )}
                           </div>
                         </div>
+
+                        {showDeleteConfirm === evento.id ? (
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 animate-fade-in">
+                            <button
+                              onClick={() => handleDeleteEvento(evento.id)}
+                              disabled={deleteLoading === evento.id}
+                              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                            >
+                              {deleteLoading === evento.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => setShowDeleteConfirm(null)}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                            <button
+                              onClick={() => handleEditEvento(evento)}
+                              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                              title="Editar evento"
+                            >
+                              <Pencil size={14} /> Editar
+                            </button>
+                            <button
+                              onClick={() => setShowDeleteConfirm(evento.id)}
+                              className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                              title="Excluir evento"
+                            >
+                              <Trash2 size={14} /> Excluir
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -638,9 +637,9 @@ export default function Saude() {
             {/* Tab: Publicar Notícia */}
             {activeTab === 'noticia' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
-                <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingNoticiaId ? 'bg-amber-100' : 'bg-cyan-100'}`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${editingNoticiaId ? 'bg-amber-100' : 'bg-cyan-100'}`}>
                       {editingNoticiaId ? <Pencil className="text-amber-600" size={20} /> : <Newspaper className="text-cyan-600" size={20} />}
                     </div>
                     <div>
@@ -710,7 +709,7 @@ export default function Saude() {
             {activeTab === 'minhas_noticias' && (
               <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
                 <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
-                  <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <Eye className="text-purple-600" size={20} />
                   </div>
                   <div>
@@ -735,69 +734,65 @@ export default function Saude() {
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
                     {minhasNoticias.map(noticia => (
-                      <div key={noticia.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingNoticiaId === noticia.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            {noticia.imagem_url && (
-                              <img src={noticia.imagem_url} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                {noticia.destaque && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⭐ Destaque</span>
-                                )}
-                                {noticia.status === 'pendente' ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
-                                ) : (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
-                                )}
-                                <h4 className="font-bold text-slate-800 text-sm truncate">{noticia.titulo}</h4>
-                              </div>
-                              <p className="text-xs text-slate-500 line-clamp-1">{noticia.resumo}</p>
-                              <span className="text-[11px] text-slate-400 mt-1 block">
-                                {new Date(noticia.criado_em).toLocaleDateString('pt-BR')}
-                              </span>
+                      <div key={noticia.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all flex flex-col gap-3 ${editingNoticiaId === noticia.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
+                        <div className="flex items-start gap-3 min-w-0">
+                          {noticia.imagem_url && (
+                            <img src={noticia.imagem_url} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {noticia.destaque && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⭐ Destaque</span>
+                              )}
+                              {noticia.status === 'pendente' ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Aguardando aprovação</span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Publicado</span>
+                              )}
+                              <h4 className="font-bold text-slate-800 text-sm truncate">{noticia.titulo}</h4>
                             </div>
-                          </div>
-
-                          <div className="flex-shrink-0 flex items-center gap-1.5">
-                            {deleteNoticiaConfirm === noticia.id ? (
-                              <div className="flex items-center gap-2 animate-fade-in">
-                                <button
-                                  onClick={() => handleDeleteNoticia(noticia.id)}
-                                  disabled={deleteNoticiaLoading === noticia.id}
-                                  className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
-                                >
-                                  {deleteNoticiaLoading === noticia.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                  Confirmar
-                                </button>
-                                <button
-                                  onClick={() => setDeleteNoticiaConfirm(null)}
-                                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => handleEditNoticia(noticia)}
-                                  className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
-                                  title="Editar notícia"
-                                >
-                                  <Pencil size={16} />
-                                </button>
-                                <button
-                                  onClick={() => setDeleteNoticiaConfirm(noticia.id)}
-                                  className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
-                                  title="Excluir notícia"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </>
-                            )}
+                            <p className="text-xs text-slate-500 line-clamp-1">{noticia.resumo}</p>
+                            <span className="text-[11px] text-slate-400 mt-1 block">
+                              {new Date(noticia.criado_em).toLocaleDateString('pt-BR')}
+                            </span>
                           </div>
                         </div>
+
+                        {deleteNoticiaConfirm === noticia.id ? (
+                          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 animate-fade-in">
+                            <button
+                              onClick={() => handleDeleteNoticia(noticia.id)}
+                              disabled={deleteNoticiaLoading === noticia.id}
+                              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                            >
+                              {deleteNoticiaLoading === noticia.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => setDeleteNoticiaConfirm(null)}
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                            <button
+                              onClick={() => handleEditNoticia(noticia)}
+                              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                              title="Editar notícia"
+                            >
+                              <Pencil size={14} /> Editar
+                            </button>
+                            <button
+                              onClick={() => setDeleteNoticiaConfirm(noticia.id)}
+                              className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
+                              title="Excluir notícia"
+                            >
+                              <Trash2 size={14} /> Excluir
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -847,6 +842,8 @@ export default function Saude() {
               </div>
             </div>
           </div>
+            </div>
+          </main>
         </div>
       </div>
     </div>
