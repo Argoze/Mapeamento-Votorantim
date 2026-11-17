@@ -388,7 +388,12 @@ export default function Equipamentos() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mt-6">
                         {/* Mapa com todos os equipamentos */}
-                        <div ref={mapCardRef} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[420px] lg:h-auto scroll-mt-24">
+                        {/* lg:min-h garante espaço pro card de detalhes do equipamento
+                            (UnidadeDetalheModal) caber inteiro sem cortar nem precisar
+                            rolar dentro dele — sem isso, quando o painel ao lado (ex.:
+                            poucos favoritos) é baixo, o grid encolhe essa coluna junto
+                            e o card de detalhes fica espremido. */}
+                        <div ref={mapCardRef} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[420px] lg:h-auto lg:min-h-[620px] scroll-mt-24">
                             <div className="flex items-center justify-between gap-3 p-5 pb-0 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <MapPin size={16} className="text-indigo-500" />
@@ -479,7 +484,10 @@ export default function Equipamentos() {
                                             Toque no <Heart size={13} className="inline -mt-0.5" /> ao abrir um equipamento no mapa pra adicionar aqui.
                                         </p>
                                     ) : (
-                                        <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                                        // Sem altura máxima/scroll interno de propósito: a lista cresce
+                                        // junto com o card (como a de "Por categoria" ao lado) e quem
+                                        // rola é a página, não uma caixinha dentro dela.
+                                        <div className="space-y-2 pr-1">
                                             {unidadesFiltradas.map((u) => {
                                                 const tipo = getUnitType(u);
                                                 return (

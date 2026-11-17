@@ -26,7 +26,7 @@ import Footer from '../components/Footer';
 import { MapSidebarSkeleton } from '../components/LoadingSkeleton';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
 import UnidadeDetalheModal from '../components/UnidadeDetalheModal';
-import IntentionSearchPanel, { IntentionResultCard } from '../components/IntentionSearchPanel';
+import IntentionSearchPanel, { IntentionResultCard, IntentionInfoModal } from '../components/IntentionSearchPanel';
 import { registrarVisualizacaoUnidade, registrarFiltroCategoria, registrarPaginaVista, registrarBairroPorCoordenada } from '../lib/metricas';
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -309,6 +309,10 @@ export default function Map() {
   const [intencaoTexto, setIntencaoTexto] = useState('');
   const [intencaoAtiva, setIntencaoAtiva] = useState(null);
   const [showAjudaModal, setShowAjudaModal] = useState(false);
+  // Entre escolher o problema e ser levado ao mapa, entra essa etapa: o
+  // modal de orientações. Só avança pro mapa quando o usuário confirma —
+  // ver handleConfirmarVerUnidades abaixo.
+  const [showIntencaoInfoModal, setShowIntencaoInfoModal] = useState(false);
 
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
   const [favoritos, setFavoritos] = useState(loadFavoritos);
@@ -420,10 +424,30 @@ export default function Map() {
     setIntencaoTexto(texto);
     setIntencaoAtiva(resultado);
 
+    // Antes ia direto pro mapa aqui. Agora só abre o modal de orientações
+    // (mesma coisa no mobile e no desktop) — o usuário decide quando quer
+    // ver onde ir, pelo botão desse modal (handleConfirmarVerUnidades).
     if (resultado && resultado.matched) {
+      setShowIntencaoInfoModal(true);
+    }
+  };
+
+  const handleClearIntencao = () => {
+    setIntencaoTexto('');
+    setIntencaoAtiva(null);
+    setShowIntencaoInfoModal(false);
+  };
+
+  // Chamado pelo botão "Ver unidades para me atender" do modal de
+  // orientações: só a partir daqui o mapa é centralizado na recomendação e a
+  // página rola até ele — antes disso o usuário só leu a orientação.
+  const handleConfirmarVerUnidades = () => {
+    setShowIntencaoInfoModal(false);
+
+    if (intencaoAtiva && intencaoAtiva.matched) {
       const base = unidadesProximas.length > 0 ? unidadesProximas : unidades;
       const recomendadas = base.filter((u) =>
-        resultado.tiposAlvo.includes(getUnitType(u).label)
+        intencaoAtiva.tiposAlvo.includes(getUnitType(u).label)
       );
       if (recomendadas.length > 0) {
         focarUnidade(recomendadas[0], 15, 300);
@@ -433,11 +457,6 @@ export default function Map() {
         document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' });
       });
     }
-  };
-
-  const handleClearIntencao = () => {
-    setIntencaoTexto('');
-    setIntencaoAtiva(null);
   };
 
   const handleSearch = async () => {
@@ -745,6 +764,17 @@ export default function Map() {
           intencaoAtiva={intencaoAtiva}
           onSelectIntencao={handleSelectIntencao}
           onClearIntencao={handleClearIntencao}
+        />
+
+        <IntentionInfoModal
+          open={showIntencaoInfoModal}
+          intencaoAtiva={intencaoAtiva}
+          onClose={() => setShowIntencaoInfoModal(false)}
+          onTrocar={() => {
+            setShowIntencaoInfoModal(false);
+            setShowAjudaModal(true);
+          }}
+          onVerUnidades={handleConfirmarVerUnidades}
         />
 
         <IntentionResultCard

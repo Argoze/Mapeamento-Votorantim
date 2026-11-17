@@ -63,7 +63,14 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
       role="dialog"
       aria-modal="true"
       aria-label={unidade.nome}
-      className="fixed inset-x-0 bottom-0 max-h-[52vh] rounded-t-3xl rounded-b-none sm:rounded-2xl sm:max-h-none sm:absolute sm:inset-x-auto sm:bottom-auto sm:inset-y-2 sm:left-2 sm:right-auto z-[1200] w-full sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
+      // No sm+ (desktop/tablet) o card fica centralizado verticalmente dentro
+      // do mapa (top/bottom em 0 + margin auto = truque clássico de centro
+      // sem transform — "translate-y-1/2" não serve aqui porque a animação
+      // de entrada já anima "transform", e as duas brigariam pelo mesmo
+      // valor), em vez de esticado do topo ao fundo como antes. Só centra de
+      // verdade quando o conteúdo é mais baixo que o espaço disponível; do
+      // contrário ocupa até max-h e rola por dentro (overflow-y-auto).
+      className="fixed inset-x-0 bottom-0 max-h-[52vh] rounded-t-3xl rounded-b-none sm:rounded-2xl sm:absolute sm:inset-x-auto sm:left-2 sm:right-auto sm:inset-y-0 sm:my-auto sm:h-fit sm:max-h-[calc(100%-1rem)] z-[1200] w-full sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
     >
       <button
         type="button"
