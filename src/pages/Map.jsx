@@ -480,6 +480,14 @@ export default function Map() {
         if (maisProxima) {
           focarUnidade(maisProxima, 15, 1200);
         }
+
+        // Leva o usuário até o mapa (mesmo elemento que o resto da página já
+        // usa pra isso, ver handleSelectIntencao acima) — sem isso, quem
+        // busca pelo endereço no topo da Home precisa rolar manualmente até
+        // achar o resultado, em vez de já ver o mapa centralizado nele.
+        requestAnimationFrame(() => {
+          document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' });
+        });
       } else {
         setError(
           'Endereço não encontrado. Verifique se digitou corretamente (ex.: "Rua João Walter, Centro").'
@@ -533,6 +541,11 @@ export default function Map() {
             focarUnidade(maisProxima, 15, 1200);
           }
         }
+
+        requestAnimationFrame(() => {
+          document.getElementById('busca-unidades')?.scrollIntoView({ behavior: 'smooth' });
+        });
+
         setLoading(false);
       },
       () => {

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
-import { Building2, MapPin, Layers, PieChart } from 'lucide-react';
+import { Building2, MapPin, Layers, PieChart, Heart } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AccessibilityToolbar from '../components/AccessibilityToolbar';
@@ -216,9 +216,10 @@ export default function Equipamentos() {
 
     const unidadesFiltradas = useMemo(() => {
         if (categoriaAtiva === 'Todas') return unidades;
+        if (categoriaAtiva === 'Favoritos') return unidades.filter((u) => favoritos.includes(u.id));
         if (categoriaAtiva === 'Saúde') return unidades.filter((u) => (u.categoria || 'Saúde') === 'Saúde');
         return unidades.filter((u) => getUnitType(u).label === categoriaAtiva);
-    }, [unidades, categoriaAtiva]);
+    }, [unidades, categoriaAtiva, favoritos]);
 
     const totalSaude = unidades.filter((u) => (u.categoria || 'Saúde') === 'Saúde').length;
 
@@ -264,7 +265,7 @@ export default function Equipamentos() {
                     )}
 
                     {/* KPIs */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-8">
                         <button
                             type="button"
                             onClick={() => setCategoriaAtiva('Todas')}
@@ -304,6 +305,20 @@ export default function Equipamentos() {
                         >
                             <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">{totalSaude}</p>
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Unidades de saúde</p>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => alternarCategoria('Favoritos')}
+                            className={`text-left rounded-2xl p-5 border shadow-sm transition-all ${categoriaAtiva === 'Favoritos'
+                                ? 'bg-red-50 dark:bg-red-500/15 border-red-200 dark:border-red-500/30'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-red-200'
+                                }`}
+                        >
+                            <p className="flex items-center gap-1.5 text-3xl font-extrabold text-slate-900 dark:text-slate-50">
+                                <Heart size={20} className={favoritos.length > 0 ? 'fill-red-500 text-red-500' : 'text-slate-300 dark:text-slate-600'} />
+                                {favoritos.length}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Favoritos</p>
                         </button>
                     </div>
 
@@ -350,60 +365,130 @@ export default function Equipamentos() {
                             </div>
                         </div>
 
-                        {/* Estatísticas por categoria */}
+                        {/* Painel lateral: lista de favoritos quando esse filtro está ativo,
+                            estatísticas por categoria nos demais casos. */}
                         <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <div className="flex items-center gap-2 mb-5">
-                                <PieChart size={16} className="text-indigo-500" />
-                                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Por categoria</h2>
-                            </div>
-
-                            {porCategoria.length === 0 ? (
-                                <p className="text-sm text-slate-400 text-center py-10">Nenhum equipamento cadastrado ainda.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCategoriaAtiva('Todas')}
-                                        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${categoriaAtiva === 'Todas'
-                                            ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
-                                            : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                            }`}
-                                    >
+                            {categoriaAtiva === 'Favoritos' ? (
+                                <>
+                                    <div className="flex items-center justify-between gap-2 mb-5">
                                         <span className="flex items-center gap-2">
-                                            <Layers size={14} />
-                                            Todas as categorias
+                                            <Heart size={16} className="text-red-500 fill-red-500" />
+                                            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Seus favoritos</h2>
                                         </span>
-                                        <span>{total}</span>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCategoriaAtiva('Todas')}
+                                            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                                        >
+                                            Ver todas
+                                        </button>
+                                    </div>
 
-                                    {porCategoria.map((cat) => {
-                                        const pct = Math.round((cat.total / maiorCategoria) * 100);
-                                        const ativa = categoriaAtiva === cat.label;
-                                        return (
+                                    {/* Favoritos ficam salvos só neste navegador (localStorage) — não há
+                                        cadastro de usuário para o cidadão, então a lista não acompanha a
+                                        pessoa entre dispositivos ou se o histórico do navegador for limpo. */}
+                                    {unidadesFiltradas.length === 0 ? (
+                                        <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-10 leading-relaxed">
+                                            Você ainda não favoritou nenhum equipamento.<br />
+                                            Toque no <Heart size={13} className="inline -mt-0.5" /> ao abrir um equipamento no mapa pra adicionar aqui.
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                                            {unidadesFiltradas.map((u) => {
+                                                const tipo = getUnitType(u);
+                                                return (
+                                                    <div
+                                                        key={u.id}
+                                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setUnidadeSelecionada(u)}
+                                                            className="flex-1 min-w-0 text-left"
+                                                        >
+                                                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                                                <span className={`text-[10px] font-bold text-white px-1.5 py-0.5 rounded-md flex-shrink-0 ${badgeClass(tipo.color)}`}>
+                                                                    {tipo.label}
+                                                                </span>
+                                                                <span className="truncate">{u.nome}</span>
+                                                            </span>
+                                                            {u.endereco && (
+                                                                <span className="block text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                                                                    {u.endereco}
+                                                                </span>
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleFavorito(u.id)}
+                                                            title="Remover dos favoritos"
+                                                            aria-label={`Remover ${u.nome} dos favoritos`}
+                                                            className="flex-shrink-0 p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                                        >
+                                                            <Heart size={16} className="fill-red-500" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-2 mb-5">
+                                        <PieChart size={16} className="text-indigo-500" />
+                                        <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">Por categoria</h2>
+                                    </div>
+
+                                    {porCategoria.length === 0 ? (
+                                        <p className="text-sm text-slate-400 text-center py-10">Nenhum equipamento cadastrado ainda.</p>
+                                    ) : (
+                                        <div className="space-y-3">
                                             <button
-                                                key={cat.label}
                                                 type="button"
-                                                onClick={() => alternarCategoria(cat.label)}
-                                                className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${ativa ? 'bg-slate-50 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                onClick={() => setCategoriaAtiva('Todas')}
+                                                className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${categoriaAtiva === 'Todas'
+                                                    ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                                                     }`}
                                             >
-                                                <div className="flex items-center justify-between gap-3 mb-1.5">
-                                                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                                        <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.cor }} />
-                                                        {cat.label}
-                                                    </span>
-                                                    <span className="text-sm font-bold text-slate-900 dark:text-slate-50">{cat.total}</span>
-                                                </div>
-                                                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full"
-                                                        style={{ width: `${pct}%`, backgroundColor: cat.cor }}
-                                                    />
-                                                </div>
+                                                <span className="flex items-center gap-2">
+                                                    <Layers size={14} />
+                                                    Todas as categorias
+                                                </span>
+                                                <span>{total}</span>
                                             </button>
-                                        );
-                                    })}
-                                </div>
+
+                                            {porCategoria.map((cat) => {
+                                                const pct = Math.round((cat.total / maiorCategoria) * 100);
+                                                const ativa = categoriaAtiva === cat.label;
+                                                return (
+                                                    <button
+                                                        key={cat.label}
+                                                        type="button"
+                                                        onClick={() => alternarCategoria(cat.label)}
+                                                        className={`w-full text-left px-3 py-2.5 rounded-xl transition-all ${ativa ? 'bg-slate-50 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                                                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.cor }} />
+                                                                {cat.label}
+                                                            </span>
+                                                            <span className="text-sm font-bold text-slate-900 dark:text-slate-50">{cat.total}</span>
+                                                        </div>
+                                                        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full"
+                                                                style={{ width: `${pct}%`, backgroundColor: cat.cor }}
+                                                            />
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
