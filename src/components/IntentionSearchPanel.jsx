@@ -16,7 +16,7 @@ import {
   Baby,
   Brain,
 } from 'lucide-react';
-import { INTENCOES, normalizeText } from '../utils/intentionSearch';
+import { INTENCOES, normalizeText, correspondeComTolerancia } from '../utils/intentionSearch';
 
 // Opções em destaque: cobrem os motivos mais comuns de busca, com seleção
 // direta por clique (sem depender de o texto digitado "bater" com palavras-
@@ -75,15 +75,17 @@ export default function IntentionSearchPanel({
   }, [open, onClose]);
 
   // Sugestões de autocomplete: busca por substring (normalizada, sem acento)
-  // no título ou nas palavras-chave de cada categoria. Diferente da versão
-  // anterior, o usuário sempre VÊ o que vai ser selecionado antes de confirmar
-  // — nada de classificação silenciosa em segundo plano.
+  // no título ou nas palavras-chave de cada categoria e, quando isso não bate,
+  // por proximidade de digitação (tolera erro de digitação/abreviação, ex:
+  // "vacna" ainda encontra "vacina"). Diferente da versão anterior, o usuário
+  // sempre VÊ o que vai ser selecionado antes de confirmar — nada de
+  // classificação silenciosa em segundo plano.
   const sugestoes = useMemo(() => {
     const termo = normalizeText(texto);
     if (termo.length < 2) return [];
     return INTENCOES.filter((intencao) => {
-      if (normalizeText(intencao.titulo).includes(termo)) return true;
-      return intencao.keywords.some((kw) => normalizeText(kw).includes(termo));
+      if (correspondeComTolerancia(normalizeText(intencao.titulo), termo)) return true;
+      return intencao.keywords.some((kw) => correspondeComTolerancia(normalizeText(kw), termo));
     }).slice(0, 6);
   }, [texto]);
 

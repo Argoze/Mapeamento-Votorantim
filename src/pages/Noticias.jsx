@@ -134,7 +134,7 @@ export default function Noticias() {
       <div className="text-slate-800 dark:text-slate-100 antialiased relative min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950">
         <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
         <Navbar />
-        <main id="conteudo-principal" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-10">
+        <main id="conteudo-principal" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
           <button
             onClick={() => setSelectedNoticia(null)}
             className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 mb-6 transition-colors animate-slide-down"
@@ -182,26 +182,28 @@ export default function Noticias() {
       <a href="#conteudo-principal" className="skip-link">Pular para o conteúdo principal</a>
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 pt-28 pb-16 sm:pt-32 sm:pb-20">
-        <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 mb-3 animate-slide-up">
-            <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
+      <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+
+        {/* Cabeçalho — mesmo padrão de ícone + título de Equipamentos, em vez
+            do banner colorido de ponta a ponta que antes ficava atrás da
+            navbar (transparente até rolar a página), deixando os links do
+            menu ilegíveis no topo. A busca entra na mesma linha, como ação
+            do cabeçalho, seguindo o mesmo padrão usado em Equipamentos/Admin. */}
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-8 animate-slide-up">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center shadow-md flex-shrink-0">
               <Newspaper className="h-5 w-5 text-white" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Notícias</h1>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+                Notícias
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Fique por dentro das novidades da saúde em Votorantim.
+              </p>
+            </div>
           </div>
-          <p className="text-indigo-100 text-base sm:text-lg max-w-2xl animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            Fique por dentro das novidades da saúde em Votorantim.
-          </p>
-        </div>
-      </section>
 
-      <main id="conteudo-principal" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-10 relative z-10">
-        {/* Busca */}
-        <div className="mb-6 flex justify-end animate-slide-up">
           <div className="relative w-full sm:w-80">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" aria-hidden="true" />
             <label htmlFor="busca-noticias" className="sr-only">Buscar notícia</label>
@@ -211,7 +213,7 @@ export default function Noticias() {
               placeholder="Buscar notícia..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-md"
+              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm"
             />
           </div>
         </div>

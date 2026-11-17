@@ -124,26 +124,25 @@ export default function Events() {
         />
       )}
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-cyan-600 pt-28 pb-16 sm:pt-32 sm:pb-20">
-        <div className="absolute top-[-20%] right-[-5%] w-[360px] h-[360px] bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-[-30%] left-[-10%] w-[380px] h-[380px] bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="animate-slide-up">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-11 w-11 bg-white/15 dark:bg-white/10 dark:bg-white/5 rounded-xl flex items-center justify-center shadow-sm backdrop-blur-sm">
-                <Megaphone className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Alertas e Campanhas</h1>
-            </div>
-            <p className="text-indigo-100 text-base sm:text-lg max-w-xl">
+      <main id="conteudo-principal" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-16">
+
+        {/* Cabeçalho — mesmo padrão de ícone + título da página de
+            Equipamentos, em vez do banner colorido de ponta a ponta que
+            antes ficava atrás da navbar (transparente até rolar a página),
+            deixando "Mapa"/"Equipamentos" ilegíveis no topo. */}
+        <div className="flex items-center gap-3 mb-8 animate-slide-up">
+          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center shadow-md flex-shrink-0">
+            <Megaphone className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight">
+              Eventos e Campanhas
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Fique por dentro dos mutirões e eventos de saúde em Votorantim. Adicione lembretes direto ao seu calendário!
             </p>
           </div>
         </div>
-      </section>
-
-      <main id="conteudo-principal" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 pb-12 relative z-10">
 
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-2 mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -190,7 +189,7 @@ export default function Events() {
         </div>
 
         {/* Grid de Eventos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {loading ? (
             <>
               <EventCardSkeleton />
@@ -199,7 +198,7 @@ export default function Events() {
               <EventCardSkeleton />
             </>
           ) : eventosFiltrados.length === 0 ? (
-            <div className="col-span-1 md:col-span-2 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-scale-in p-6">
+            <div className="col-span-1 md:col-span-2 xl:col-span-3 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-scale-in p-6">
               <div className="text-5xl mb-4 animate-float">
                 {filtro === 'Favoritos' ? '❤️' : '📋'}
               </div>
