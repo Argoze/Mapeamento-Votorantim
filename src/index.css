@@ -1,3 +1,11 @@
+/* Fonte Inter auto-hospedada (variável, cobre os pesos 400-900 num único
+   arquivo por subset) em vez de carregar do Google Fonts: elimina a cadeia
+   crítica css2?family=... -> arquivo .woff2 em domínio externo (2
+   requisições seriais, ~850ms de latência medidos no Lighthouse) e passa a
+   servir a fonte junto dos outros assets da build, com cache de longo
+   prazo. Ver src/fonts-inter.css: só os subsets latin/latin-ext (os únicos
+   usados em pt-BR) são importados, não o pacote inteiro. */
+@import "./fonts-inter.css";
 @import "tailwindcss";
 
 /* Modo escuro acionado por classe (.dark na <html>), não só por preferência

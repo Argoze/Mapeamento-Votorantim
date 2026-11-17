@@ -14,10 +14,11 @@
   <meta property="og:title" content="Votorantim Inteligente - Mapeamento da Rede Municipal" />
   <meta property="og:description" content="Encontre a unidade de saúde mais próxima de você em Votorantim-SP." />
   <meta property="og:type" content="website" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-    rel="stylesheet">
+  <!-- Conecta cedo com o Supabase (API + Storage de imagens, mesmo domínio),
+       pra encurtar DNS/TLS antes mesmo do React disparar o fetch dos dados
+       e da imagem de capa (atual maior elemento de LCP da Home). -->
+  <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin>
+  <link rel="preconnect" href="%VITE_SUPABASE_URL%">
   <title>Votorantim Inteligente - Mapeamento da Rede Municipal</title>
   <script>
     (function () {
