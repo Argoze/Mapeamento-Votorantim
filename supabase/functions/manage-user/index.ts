@@ -166,11 +166,35 @@ Deno.serve(async (req: Request) => {
         }
 
         if (action === 'delete') {
+            // Várias tabelas guardam quem criou/registrou algo com uma foreign key pra
+            // auth.users (sem ON DELETE CASCADE, que é o padrão do Postgres quando a
+            // constraint não diz nada) — excluir o usuário no Auth enquanto essas linhas
+            // ainda apontam pra ele falha com "Database error deleting user". A correção
+            // é desvincular essas referências ANTES de tocar em auth.users, preservando o
+            // conteúdo em si (eventos/notícias continuam publicados, e o histórico de
+            // auditoria continua existindo com o e-mail já salvo em `usuario_email`) —
+            // só o vínculo com a conta que será excluída é removido.
+            //
+            // Nenhum desses `update` tem seu erro checado de propósito: se alguma dessas
+            // tabelas ainda não existir no banco (ex.: `auditoria`, que é uma atualização
+            // opcional em setup_database.sql), isso não deve impedir a exclusão do usuário.
+            await adminClient.from('eventos').update({ criado_por: null }).eq('criado_por', targetId);
+            await adminClient.from('noticias').update({ criado_por: null }).eq('criado_por', targetId);
+            await adminClient.from('auditoria').update({ usuario_id: null }).eq('usuario_id', targetId);
+
+            // A linha de `perfis` também referencia auth.users(id) (sem CASCADE) — por
+            // isso ela precisa ser apagada ANTES do usuário em auth.users, nunca depois
+            // (como estava antes desta correção): na ordem antiga, o Postgres recusava
+            // excluir o usuário enquanto o perfil dele ainda existisse.
+            const { error: deletePerfilError } = await adminClient.from('perfis').delete().eq('id', targetId);
+            if (deletePerfilError) {
+                return json({ error: 'Erro ao excluir perfil: ' + deletePerfilError.message }, 400);
+            }
+
             const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetId);
             if (deleteError) {
                 return json({ error: 'Erro ao excluir usuário: ' + deleteError.message }, 400);
             }
-            await adminClient.from('perfis').delete().eq('id', targetId);
             return json({ ok: true }, 200);
         }
 

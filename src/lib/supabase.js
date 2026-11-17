@@ -138,15 +138,26 @@ export async function setUserStatusAdmin(id, desativar) {
 // inteira, então o próprio cliente autenticado como ADM pode fazer esse UPDATE
 // direto — com o banco de dados garantindo a permissão, não o frontend.
 //
+// Usa UPSERT (não UPDATE) de propósito: contas antigas criadas direto pelo painel
+// do Supabase (sem passar pela Edge Function "create-user") podem ter ficado sem
+// nenhuma linha correspondente em `perfis` — é exatamente o caso das contas que
+// aparecem como "(sem nome)" na lista. Um UPDATE nessas contas não dá erro
+// nenhum, só não afeta nenhuma linha (porque não existe linha pra afetar) e a
+// edição parece "sumir" silenciosamente. UPSERT cria a linha se ela não existir
+// ainda, e atualiza se já existir — cobre os dois casos.
+//
 // `campos` aceita qualquer combinação de { nome, role, permissoes }; só os
-// campos presentes são enviados no UPDATE.
+// campos presentes são enviados. `role` deve sempre vir preenchido quando há
+// risco de a linha ainda não existir (a coluna é NOT NULL) — o formulário de
+// edição em Admin.jsx sempre manda os três juntos, então isso não é problema
+// no uso atual.
 export async function atualizarPerfilAdmin(id, campos) {
-  const payload = {};
+  const payload = { id };
   if (Object.prototype.hasOwnProperty.call(campos, 'nome')) payload.nome = campos.nome;
   if (Object.prototype.hasOwnProperty.call(campos, 'role')) payload.role = campos.role;
   if (Object.prototype.hasOwnProperty.call(campos, 'permissoes')) payload.permissoes = campos.permissoes;
 
-  const { error } = await supabase.from('perfis').update(payload).eq('id', id);
+  const { error } = await supabase.from('perfis').upsert(payload, { onConflict: 'id' });
   if (error) throw new Error('Erro ao atualizar perfil: ' + error.message);
 }
 
