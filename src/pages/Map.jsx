@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -20,6 +21,8 @@ import {
   Search,
   Syringe,
   Sparkles,
+  Check,
+  X,
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -318,6 +321,74 @@ export default function Map() {
   const [favoritos, setFavoritos] = useState(loadFavoritos);
   const [showLegenda, setShowLegenda] = useState(false);
   const [unidadeSelecionada, setUnidadeSelecionada] = useState(null);
+
+  // Filtro por tipo agora é um botão que abre um painel com as opções —
+  // nada de linha de chips brigando por espaço (ou pior, rolando de lado).
+  // filtroPendente é a escolha ainda não confirmada: só vira o filtro de
+  // verdade (tipoFiltro) quando o usuário clica em "Aplicar"; "Cancelar" ou
+  // clicar fora descarta e volta pro que já estava valendo.
+  const [showFiltroDropdown, setShowFiltroDropdown] = useState(false);
+  const [filtroPendente, setFiltroPendente] = useState('Todos');
+  // O botão fica dentro de um bloco com animação de entrada (animate-slide-up),
+  // e essa animação usa transform — o que cria um contexto de empilhamento
+  // próprio nesse bloco e "prende" qualquer z-index do painel lá dentro,
+  // mesmo um bem alto, atrás do mapa/navbar. Por isso o painel é desenhado
+  // via portal direto no <body> (mesmo padrão do IntentionSearchPanel) e
+  // posicionado "à mão" com as coordenadas do botão.
+  const filtroBtnWrapperRef = useRef(null);
+  const filtroPainelRef = useRef(null);
+  const [filtroDropdownPos, setFiltroDropdownPos] = useState({ top: 0, left: 0 });
+
+  const abrirFiltroDropdown = () => {
+    const rect = filtroBtnWrapperRef.current?.getBoundingClientRect();
+    if (rect) setFiltroDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    setFiltroPendente(tipoFiltro);
+    setShowFiltroDropdown(true);
+  };
+
+  const cancelarFiltroDropdown = () => {
+    setFiltroPendente(tipoFiltro);
+    setShowFiltroDropdown(false);
+  };
+
+  const aplicarFiltroDropdown = () => {
+    setTipoFiltro(filtroPendente);
+    if (filtroPendente !== 'Favoritos') registrarFiltroCategoria(filtroPendente);
+    setShowFiltroDropdown(false);
+  };
+
+  useEffect(() => {
+    if (!showFiltroDropdown) return;
+    const handleClickFora = (e) => {
+      const dentroDoBotao = filtroBtnWrapperRef.current?.contains(e.target);
+      const dentroDoPainel = filtroPainelRef.current?.contains(e.target);
+      if (!dentroDoBotao && !dentroDoPainel) cancelarFiltroDropdown();
+    };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') cancelarFiltroDropdown();
+    };
+    // Em vez de fechar ao rolar a página, o painel (que usa "position: fixed"
+    // com coordenadas calculadas na abertura) acompanha o botão: recalcula a
+    // posição a cada scroll/resize. Fechar no primeiro scroll parecia mais
+    // simples, mas o próprio clique que abre o painel já pode disparar um
+    // micro-scroll nativo do navegador (ajuste de foco perto do topo da
+    // tela), fechando tudo antes do usuário ver qualquer coisa.
+    const atualizarPosicao = () => {
+      const rect = filtroBtnWrapperRef.current?.getBoundingClientRect();
+      if (rect) setFiltroDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    };
+    document.addEventListener('mousedown', handleClickFora);
+    document.addEventListener('keydown', handleEsc);
+    window.addEventListener('scroll', atualizarPosicao, true);
+    window.addEventListener('resize', atualizarPosicao);
+    return () => {
+      document.removeEventListener('mousedown', handleClickFora);
+      document.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('scroll', atualizarPosicao, true);
+      window.removeEventListener('resize', atualizarPosicao);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFiltroDropdown, tipoFiltro]);
 
   const [configHome, setConfigHome] = useState(null);
 
@@ -785,34 +856,99 @@ export default function Map() {
         />
 
         <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter size={16} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
-            {FILTROS.map((f) => (
+          {/* Um botão só, que abre um painel com as 11 opções — em vez da
+              fileira de chips de antes (quebrava linha, ou rolava de lado,
+              o que não ficou bom). Escolher uma opção no painel não aplica
+              na hora: fica "pendente" até clicar em "Aplicar filtro"; dá pra
+              trocar à vontade ou cancelar sem mexer no que já estava valendo
+              — igual o padrão de filtro com confirmação de outros sites. */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div ref={filtroBtnWrapperRef}>
               <button
-                key={f}
                 type="button"
-                onClick={() => {
-                  setTipoFiltro(f);
-                  if (f !== 'Favoritos') registrarFiltroCategoria(f);
-                }}
-                aria-pressed={tipoFiltro === f}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 ${tipoFiltro === f
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                onClick={() => (showFiltroDropdown ? cancelarFiltroDropdown() : abrirFiltroDropdown())}
+                aria-expanded={showFiltroDropdown}
+                aria-haspopup="true"
+                className={`flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-xl text-sm font-semibold border transition-all ${showFiltroDropdown
+                  ? 'bg-indigo-50 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
               >
-                {f === 'Favoritos' && (
-                  <Heart size={13} className={tipoFiltro === f ? 'fill-white' : ''} />
-                )}
-                {f} ({contadorFiltro(f)})
+                <Filter size={15} className="flex-shrink-0" />
+                {tipoFiltro === 'Favoritos' && <Heart size={13} className="flex-shrink-0 fill-current" />}
+                <span>
+                  Filtro: <strong>{tipoFiltro}</strong> ({contadorFiltro(tipoFiltro)})
+                </span>
+                {showFiltroDropdown ? <ChevronUp size={15} className="flex-shrink-0" /> : <ChevronDown size={15} className="flex-shrink-0" />}
               </button>
-            ))}
+            </div>
+
+            {showFiltroDropdown && typeof document !== 'undefined' && createPortal(
+              <div
+                ref={filtroPainelRef}
+                role="dialog"
+                aria-label="Filtrar por tipo de equipamento"
+                style={{ position: 'fixed', top: filtroDropdownPos.top, left: filtroDropdownPos.left }}
+                className="z-[1300] w-[min(92vw,420px)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl animate-slide-down overflow-hidden"
+              >
+                <div className="p-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {FILTROS.map((f) => {
+                      const selecionado = filtroPendente === f;
+                      return (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setFiltroPendente(f)}
+                          aria-pressed={selecionado}
+                          className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left ${selecionado
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                        >
+                          <span className="flex items-center gap-1 min-w-0">
+                            {f === 'Favoritos' && (
+                              <Heart size={12} className={`flex-shrink-0 ${selecionado ? 'fill-white' : ''}`} />
+                            )}
+                            <span className="truncate">{f}</span>
+                          </span>
+                          <span className={`flex-shrink-0 ${selecionado ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                            {contadorFiltro(f)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                  <button
+                    type="button"
+                    onClick={cancelarFiltroDropdown}
+                    className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                  >
+                    <X size={14} />
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={aplicarFiltroDropdown}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+                  >
+                    <Check size={14} />
+                    Aplicar filtro
+                  </button>
+                </div>
+              </div>,
+              document.body
+            )}
+
             <button
               type="button"
               onClick={() => setShowLegenda((v) => !v)}
               aria-expanded={showLegenda}
               aria-controls="legenda-siglas"
-              className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors px-2 py-2"
+              className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors px-2 py-2"
             >
               <Info size={14} />
               O que significa cada sigla?
