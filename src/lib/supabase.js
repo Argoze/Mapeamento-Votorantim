@@ -130,11 +130,43 @@ export async function setUserStatusAdmin(id, desativar) {
   return data;
 }
 
-export async function setPermissoesAdmin(id, permissoes) {
+// Atualiza nome, papel (role) e/ou permissões granulares de um usuário na tabela
+// `perfis`. Diferente de e-mail/senha (que exigem a Service Role Key e por isso
+// passam pela Edge Function "manage-user"), isso NÃO precisa de Edge Function:
+// a política de RLS "Gerenciamento de perfis por ADM" já libera qualquer ADM
+// autenticado para gerenciar (SELECT/INSERT/UPDATE/DELETE) a tabela `perfis`
+// inteira, então o próprio cliente autenticado como ADM pode fazer esse UPDATE
+// direto — com o banco de dados garantindo a permissão, não o frontend.
+//
+// `campos` aceita qualquer combinação de { nome, role, permissoes }; só os
+// campos presentes são enviados no UPDATE.
+export async function atualizarPerfilAdmin(id, campos) {
+  const payload = {};
+  if (Object.prototype.hasOwnProperty.call(campos, 'nome')) payload.nome = campos.nome;
+  if (Object.prototype.hasOwnProperty.call(campos, 'role')) payload.role = campos.role;
+  if (Object.prototype.hasOwnProperty.call(campos, 'permissoes')) payload.permissoes = campos.permissoes;
+
+  const { error } = await supabase.from('perfis').update(payload).eq('id', id);
+  if (error) throw new Error('Erro ao atualizar perfil: ' + error.message);
+}
+
+// E-mail e senha vivem em auth.users, não em `perfis` — só são alteráveis com a
+// Service Role Key, então (ao contrário de nome/role/permissões acima) essas duas
+// ações precisam mesmo passar pela Edge Function "manage-user".
+export async function atualizarEmailUsuarioAdmin(id, email) {
   const { data, error } = await supabase.functions.invoke('manage-user', {
-    body: { action: 'set_permissions', id, permissoes },
+    body: { action: 'update_email', id, email },
   });
-  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao atualizar permissões."));
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao atualizar e-mail."));
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function definirSenhaUsuarioAdmin(id, password) {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'set_password', id, password },
+  });
+  if (error) throw new Error(await extrairErroDeFuncao(error, "Erro ao definir nova senha."));
   if (data?.error) throw new Error(data.error);
   return data;
 }

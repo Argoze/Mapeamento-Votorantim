@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
-import { supabase, checkAuth, logout, createUserWithProfile, listUsersAdmin, setUserStatusAdmin, setPermissoesAdmin, deleteUserAdmin, registrarAuditoria, MODULOS_ADMIN } from '../lib/supabase';
+import { supabase, checkAuth, logout, createUserWithProfile, listUsersAdmin, setUserStatusAdmin, atualizarPerfilAdmin, atualizarEmailUsuarioAdmin, definirSenhaUsuarioAdmin, deleteUserAdmin, registrarAuditoria, MODULOS_ADMIN } from '../lib/supabase';
 
 import {
 
@@ -200,7 +200,17 @@ export default function Admin() {
 
   const [confirmarExclusaoId, setConfirmarExclusaoId] = useState(null);
 
-  const [permissoesEditandoId, setPermissoesEditandoId] = useState(null);
+  // Painel "Editar usuário" (nome, e-mail, categoria/role, permissões por módulo
+  // e, opcionalmente, uma nova senha) — aberto por conta, inline na própria lista.
+  const [editandoUsuarioId, setEditandoUsuarioId] = useState(null);
+
+  const [editarUsuarioNome, setEditarUsuarioNome] = useState('');
+
+  const [editarUsuarioEmail, setEditarUsuarioEmail] = useState('');
+
+  const [editarUsuarioRole, setEditarUsuarioRole] = useState('saude');
+
+  const [editarUsuarioSenha, setEditarUsuarioSenha] = useState('');
 
   const [permissoesAcessoTotal, setPermissoesAcessoTotal] = useState(true);
 
@@ -2356,9 +2366,17 @@ export default function Admin() {
 
 
 
-  const handleAbrirPermissoes = (usuario) => {
+  const handleAbrirEdicaoUsuario = (usuario) => {
 
-    setPermissoesEditandoId(usuario.id);
+    setEditandoUsuarioId(usuario.id);
+
+    setEditarUsuarioNome(usuario.nome || '');
+
+    setEditarUsuarioEmail(usuario.email || '');
+
+    setEditarUsuarioRole(usuario.role || 'saude');
+
+    setEditarUsuarioSenha('');
 
     setPermissoesAcessoTotal(!usuario.permissoes || usuario.permissoes.length === 0);
 
@@ -2380,15 +2398,85 @@ export default function Admin() {
 
 
 
-  const handleSalvarPermissoes = async (usuario) => {
+  const handleSalvarEdicaoUsuario = async (usuario) => {
+
+    const nome = editarUsuarioNome.trim();
+
+    const email = editarUsuarioEmail.trim();
+
+    const novaSenha = editarUsuarioSenha.trim();
+
+
+
+    if (!nome) {
+
+      setToast({ message: "O nome não pode ficar em branco.", type: "error" });
+
+      return;
+
+    }
+
+    if (!email || !email.includes('@')) {
+
+      setToast({ message: "Digite um e-mail válido.", type: "error" });
+
+      return;
+
+    }
+
+    if (novaSenha && novaSenha.length < 6) {
+
+      setToast({ message: "A nova senha deve ter pelo menos 6 caracteres.", type: "error" });
+
+      return;
+
+    }
+
+
 
     setAcaoUsuarioId(usuario.id);
 
     try {
 
-      const permissoes = permissoesAcessoTotal ? null : permissoesSelecionadas;
+      const permissoes = editarUsuarioRole !== 'adm' || permissoesAcessoTotal ? null : permissoesSelecionadas;
 
-      await setPermissoesAdmin(usuario.id, permissoes);
+      const mudancas = [];
+
+
+
+      await atualizarPerfilAdmin(usuario.id, { nome, role: editarUsuarioRole, permissoes });
+
+      if (nome !== (usuario.nome || '')) mudancas.push('nome');
+
+      if (editarUsuarioRole !== usuario.role) mudancas.push(`categoria → ${editarUsuarioRole === 'adm' ? 'Admin' : 'Saúde'}`);
+
+      if (editarUsuarioRole === 'adm' && JSON.stringify(permissoes) !== JSON.stringify(usuario.permissoes || null)) {
+
+        mudancas.push(`permissões: ${permissoes ? permissoes.join(', ') : 'acesso total'}`);
+
+      }
+
+
+
+      if (email !== (usuario.email || '')) {
+
+        await atualizarEmailUsuarioAdmin(usuario.id, email);
+
+        mudancas.push('e-mail');
+
+      }
+
+
+
+      if (novaSenha) {
+
+        await definirSenhaUsuarioAdmin(usuario.id, novaSenha);
+
+        mudancas.push('senha definida manualmente');
+
+      }
+
+
 
       registrarAuditoria({
 
@@ -2396,13 +2484,15 @@ export default function Admin() {
 
         acao: 'editar', entidade: 'usuario',
 
-        entidadeId: usuario.id, entidadeTitulo: `Permissões de ${usuario.nome || usuario.email}: ${permissoes ? permissoes.join(', ') : 'acesso total'}`,
+        entidadeId: usuario.id, entidadeTitulo: `${usuario.nome || usuario.email}: ${mudancas.length ? mudancas.join(', ') : 'nenhuma alteração'}`,
 
       });
 
-      setToast({ message: `Permissões de ${usuario.nome || usuario.email} atualizadas.`, type: "success" });
+      setToast({ message: `Conta de ${nome} atualizada.`, type: "success" });
 
-      setPermissoesEditandoId(null);
+      setEditandoUsuarioId(null);
+
+      setEditarUsuarioSenha('');
 
       fetchUsuarios();
 
@@ -2410,7 +2500,7 @@ export default function Admin() {
 
       console.error(err);
 
-      setToast({ message: "Erro ao atualizar permissões: " + err.message, type: "error" });
+      setToast({ message: "Erro ao salvar alterações: " + err.message, type: "error" });
 
     }
 
@@ -2753,9 +2843,9 @@ export default function Admin() {
 
       children: [
 
-        { id: 'eventos', label: editingEventoId ? 'Editando evento' : 'Publicar evento', icon: editingEventoId ? Pencil : Megaphone },
+        { id: 'eventos', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
 
-        { id: 'gerenciar', label: 'Gerenciar eventos', icon: Calendar },
+        { id: 'gerenciar', label: 'Gerenciar Eventos', icon: Calendar },
 
       ],
 
@@ -2771,9 +2861,9 @@ export default function Admin() {
 
       children: [
 
-        { id: 'noticias', label: editingNoticiaId ? 'Editando notícia' : 'Publicar notícia', icon: editingNoticiaId ? Pencil : Newspaper },
+        { id: 'noticias', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
 
-        { id: 'gerenciar_noticias', label: 'Gerenciar notícias', icon: Eye },
+        { id: 'gerenciar_noticias', label: 'Gerenciar Notícias', icon: Eye },
 
       ],
 
@@ -2789,13 +2879,13 @@ export default function Admin() {
 
       children: [
 
-        { id: 'unidades', label: editingUnidadeId ? 'Editando unidade' : (unidadeCriandoNova ? 'Nova unidade' : 'Editar unidades'), icon: editingUnidadeId ? Pencil : Building2 },
+        { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : (unidadeCriandoNova ? 'Nova Unidade' : 'Editar Unidades'), icon: editingUnidadeId ? Pencil : Building2 },
 
-        { id: 'importar_unidades', label: 'Importar unidades', icon: Upload },
+        { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
 
-        { id: 'gerenciar_unidades', label: 'Gerenciar unidades', icon: MapPin },
+        { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
 
-        { id: 'completar_cadastro', label: 'Completar cadastro', icon: ClipboardList, badge: totalPendenciasQualidade || null },
+        { id: 'completar_cadastro', label: 'Completar Cadastro', icon: ClipboardList, badge: totalPendenciasQualidade || null },
 
       ],
 
@@ -2817,7 +2907,7 @@ export default function Admin() {
 
       id: 'correcoes',
 
-      label: 'Correções do cidadão',
+      label: 'Correções do Cidadão',
 
       icon: MessageSquareWarning,
 
@@ -2825,9 +2915,9 @@ export default function Admin() {
 
     },
 
-    { id: 'usuarios', label: 'Gerenciar usuários', icon: Users },
+    { id: 'usuarios', label: 'Gerenciar Usuários', icon: Users },
 
-    { id: 'pagina_inicial', label: 'Página inicial', icon: Home },
+    { id: 'pagina_inicial', label: 'Página Inicial', icon: Home },
 
     {
 
@@ -2839,11 +2929,11 @@ export default function Admin() {
 
       children: [
 
-        { id: 'analytics', label: 'Analytics de uso', icon: BarChart3 },
+        { id: 'analytics', label: 'Analytics de Uso', icon: BarChart3 },
 
-        { id: 'auditoria', label: 'Trilha de auditoria', icon: History },
+        { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
 
-        { id: 'exportar', label: 'Exportar dados', icon: Download },
+        { id: 'exportar', label: 'Exportar Dados', icon: Download },
 
       ],
 
@@ -3492,17 +3582,17 @@ export default function Admin() {
 
                 const acoesRapidas = [
 
-                  { chave: 'noticia', label: 'Adicionar notícia', icon: Newspaper, cor: 'bg-cyan-100 text-cyan-600', painel: 'noticias' },
+                  { chave: 'noticia', label: 'Adicionar Notícia', icon: Newspaper, cor: 'bg-cyan-100 text-cyan-600', painel: 'noticias' },
 
-                  { chave: 'evento', label: 'Criar evento', icon: Calendar, cor: 'bg-blue-100 text-blue-600', painel: 'eventos' },
+                  { chave: 'evento', label: 'Criar Evento', icon: Calendar, cor: 'bg-blue-100 text-blue-600', painel: 'eventos' },
 
-                  { chave: 'unidade', label: 'Cadastrar unidade', icon: MapPin, cor: 'bg-indigo-100 text-indigo-600', painel: 'unidades' },
+                  { chave: 'unidade', label: 'Cadastrar Unidade', icon: MapPin, cor: 'bg-indigo-100 text-indigo-600', painel: 'unidades' },
 
-                  { chave: 'campanhas', label: 'Gerenciar campanhas', icon: Megaphone, cor: 'bg-violet-100 text-violet-600', painel: 'gerenciar' },
+                  { chave: 'campanhas', label: 'Gerenciar Campanhas', icon: Megaphone, cor: 'bg-violet-100 text-violet-600', painel: 'gerenciar' },
 
-                  { chave: 'relatorios', label: 'Ver relatórios', icon: BarChart3, cor: 'bg-fuchsia-100 text-fuchsia-600', painel: 'analytics' },
+                  { chave: 'relatorios', label: 'Ver Relatórios', icon: BarChart3, cor: 'bg-fuchsia-100 text-fuchsia-600', painel: 'analytics' },
 
-                  { chave: 'pagina_inicial', label: 'Página inicial', icon: Home, cor: 'bg-amber-100 text-amber-600', painel: 'pagina_inicial' },
+                  { chave: 'pagina_inicial', label: 'Página Inicial', icon: Home, cor: 'bg-amber-100 text-amber-600', painel: 'pagina_inicial' },
 
                 ].filter((a) => temAcesso(a.painel));
 
@@ -3706,7 +3796,7 @@ export default function Admin() {
 
                             <h2 className="text-lg font-bold text-slate-800">Atividade do Sistema</h2>
 
-                            <p className="text-xs text-slate-500">Visualizações no mapa e páginas vistas - últimos 14 dias.</p>
+                            <p className="text-xs text-slate-500">Visualizações no mapa e páginas vistas — últimos 14 dias.</p>
 
                           </div>
 
@@ -3868,7 +3958,7 @@ export default function Admin() {
 
                               <div>
 
-                                <h2 className="text-lg font-bold text-slate-800">Atividades recentes</h2>
+                                <h2 className="text-lg font-bold text-slate-800">Atividades Recentes</h2>
 
                                 <p className="text-xs text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
 
@@ -3956,7 +4046,7 @@ export default function Admin() {
 
                             <Zap size={16} className="text-amber-500" />
 
-                            <h2 className="text-lg font-bold text-slate-800">Ações rápidas</h2>
+                            <h2 className="text-lg font-bold text-slate-800">Ações Rápidas</h2>
 
                           </div>
 
@@ -5112,7 +5202,7 @@ export default function Admin() {
 
                                     </button>
 
-                                    {!ehEuMesmo && u.role === 'adm' && (
+                                    {!ehEuMesmo && (
 
                                       <button
 
@@ -5120,15 +5210,15 @@ export default function Admin() {
 
                                         disabled={carregandoAcao}
 
-                                        onClick={() => handleAbrirPermissoes(u)}
+                                        onClick={() => (editandoUsuarioId === u.id ? setEditandoUsuarioId(null) : handleAbrirEdicaoUsuario(u))}
 
-                                        title="Configurar permissões por módulo"
+                                        title="Editar nome, e-mail, categoria, permissões ou senha"
 
                                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-600 hover:bg-violet-50 rounded-lg transition-all disabled:opacity-50"
 
                                       >
 
-                                        <Shield size={14} /> Permissões
+                                        <Pencil size={14} /> Editar
 
                                       </button>
 
@@ -5188,43 +5278,135 @@ export default function Admin() {
 
 
 
-                              {permissoesEditandoId === u.id && (
+                              {editandoUsuarioId === u.id && (
 
                                 <div className="mt-2 bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3 animate-fade-in">
 
-                                  <label className="flex items-center gap-2 text-sm font-semibold text-violet-800">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-                                    <input type="checkbox" checked={permissoesAcessoTotal} onChange={(e) => setPermissoesAcessoTotal(e.target.checked)} className="rounded" />
+                                    <div>
 
-                                    Acesso total (todos os módulos)
+                                      <label className="block text-xs font-semibold text-violet-800 mb-1">Nome</label>
 
-                                  </label>
+                                      <input
 
-                                  {!permissoesAcessoTotal && (
+                                        type="text"
 
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
+                                        value={editarUsuarioNome}
 
-                                      {MODULOS_ADMIN.map((m) => (
+                                        onChange={(e) => setEditarUsuarioNome(e.target.value)}
 
-                                        <label key={m.id} className="flex items-center gap-1.5 text-xs text-violet-700">
+                                        className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-400 outline-none"
 
-                                          <input
+                                      />
 
-                                            type="checkbox"
+                                    </div>
 
-                                            checked={permissoesSelecionadas.includes(m.id)}
+                                    <div>
 
-                                            onChange={() => toggleModuloPermissao(m.id)}
+                                      <label className="block text-xs font-semibold text-violet-800 mb-1">E-mail</label>
 
-                                            className="rounded"
+                                      <input
 
-                                          />
+                                        type="email"
 
-                                          {m.label}
+                                        value={editarUsuarioEmail}
 
-                                        </label>
+                                        onChange={(e) => setEditarUsuarioEmail(e.target.value)}
 
-                                      ))}
+                                        className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-400 outline-none"
+
+                                      />
+
+                                    </div>
+
+                                    <div>
+
+                                      <label className="block text-xs font-semibold text-violet-800 mb-1">Categoria</label>
+
+                                      <select
+
+                                        value={editarUsuarioRole}
+
+                                        onChange={(e) => setEditarUsuarioRole(e.target.value)}
+
+                                        className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-400 outline-none"
+
+                                      >
+
+                                        <option value="saude">🩺 Saúde (Apenas alertas)</option>
+
+                                        <option value="adm">🛡️ Admin (Acesso total)</option>
+
+                                      </select>
+
+                                    </div>
+
+                                    <div>
+
+                                      <label className="block text-xs font-semibold text-violet-800 mb-1">Nova senha (opcional)</label>
+
+                                      <input
+
+                                        type="password"
+
+                                        value={editarUsuarioSenha}
+
+                                        onChange={(e) => setEditarUsuarioSenha(e.target.value)}
+
+                                        placeholder="Deixe em branco para não alterar"
+
+                                        minLength={6}
+
+                                        className="w-full px-3 py-2 bg-white border border-violet-200 rounded-lg text-sm focus:ring-2 focus:ring-violet-400 outline-none placeholder:text-slate-400"
+
+                                      />
+
+                                    </div>
+
+                                  </div>
+
+                                  {editarUsuarioRole === 'adm' && (
+
+                                    <div className="pt-1 border-t border-violet-200">
+
+                                      <label className="flex items-center gap-2 text-sm font-semibold text-violet-800 mt-3">
+
+                                        <input type="checkbox" checked={permissoesAcessoTotal} onChange={(e) => setPermissoesAcessoTotal(e.target.checked)} className="rounded" />
+
+                                        Acesso total (todos os módulos)
+
+                                      </label>
+
+                                      {!permissoesAcessoTotal && (
+
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6 mt-2">
+
+                                          {MODULOS_ADMIN.map((m) => (
+
+                                            <label key={m.id} className="flex items-center gap-1.5 text-xs text-violet-700">
+
+                                              <input
+
+                                                type="checkbox"
+
+                                                checked={permissoesSelecionadas.includes(m.id)}
+
+                                                onChange={() => toggleModuloPermissao(m.id)}
+
+                                                className="rounded"
+
+                                              />
+
+                                              {m.label}
+
+                                            </label>
+
+                                          ))}
+
+                                        </div>
+
+                                      )}
 
                                     </div>
 
@@ -5238,7 +5420,7 @@ export default function Admin() {
 
                                       disabled={acaoUsuarioId === u.id}
 
-                                      onClick={() => handleSalvarPermissoes(u)}
+                                      onClick={() => handleSalvarEdicaoUsuario(u)}
 
                                       className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg disabled:opacity-60 flex items-center gap-1.5"
 
@@ -5246,11 +5428,11 @@ export default function Admin() {
 
                                       {acaoUsuarioId === u.id ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
 
-                                      Salvar permissões
+                                      Salvar alterações
 
                                     </button>
 
-                                    <button type="button" onClick={() => setPermissoesEditandoId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
+                                    <button type="button" onClick={() => setEditandoUsuarioId(null)} className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600">
 
                                       Cancelar
 

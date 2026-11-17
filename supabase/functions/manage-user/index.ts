@@ -60,8 +60,9 @@ Deno.serve(async (req: Request) => {
         const body = await req.json().catch(() => null);
         const action = body?.action;
 
-        if (!action || !['list', 'set_status', 'delete'].includes(action)) {
-            return json({ error: 'Ação inválida. Use "list", "set_status" ou "delete".' }, 400);
+        const ACOES_VALIDAS = ['list', 'set_status', 'delete', 'update_email', 'set_password'];
+        if (!action || !ACOES_VALIDAS.includes(action)) {
+            return json({ error: `Ação inválida. Use uma de: ${ACOES_VALIDAS.join(', ')}.` }, 400);
         }
 
         const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -71,7 +72,7 @@ Deno.serve(async (req: Request) => {
         if (action === 'list') {
             const { data: perfis, error: perfisError } = await adminClient
                 .from('perfis')
-                .select('id, role, nome');
+                .select('id, role, nome, permissoes');
 
             if (perfisError) {
                 return json({ error: 'Erro ao buscar perfis: ' + perfisError.message }, 500);
@@ -102,6 +103,7 @@ Deno.serve(async (req: Request) => {
                     email: u.email,
                     nome: perfil?.nome || null,
                     role: perfil?.role || null,
+                    permissoes: perfil?.permissoes || null,
                     desativado,
                     criado_em: u.created_at,
                     ultimo_acesso: u.last_sign_in_at || null,
@@ -118,7 +120,7 @@ Deno.serve(async (req: Request) => {
             return json({ error: 'Campo obrigatório: id.' }, 400);
         }
         if (targetId === callerUser.id) {
-            return json({ error: 'Você não pode desativar ou excluir a própria conta.' }, 400);
+            return json({ error: 'Você não pode alterar, desativar ou excluir a própria conta por aqui.' }, 400);
         }
 
         if (action === 'set_status') {
@@ -128,6 +130,37 @@ Deno.serve(async (req: Request) => {
             });
             if (updateError) {
                 return json({ error: 'Erro ao atualizar status: ' + updateError.message }, 400);
+            }
+            return json({ ok: true }, 200);
+        }
+
+        // E-mail e senha vivem em auth.users — só a Service Role Key (usada só aqui,
+        // nunca no frontend) pode alterá-los. Nome/papel/permissões, por outro lado,
+        // ficam na tabela `perfis` e o próprio frontend já atualiza isso direto (RLS
+        // libera qualquer ADM pra gerenciar `perfis`), sem precisar desta função.
+        if (action === 'update_email') {
+            const email = typeof body?.email === 'string' ? body.email.trim() : '';
+            if (!email) {
+                return json({ error: 'Campo obrigatório: email.' }, 400);
+            }
+            const { error: updateError } = await adminClient.auth.admin.updateUserById(targetId, {
+                email,
+                email_confirm: true, // evita exigir confirmação por e-mail (limite do plano gratuito)
+            });
+            if (updateError) {
+                return json({ error: 'Erro ao atualizar e-mail: ' + updateError.message }, 400);
+            }
+            return json({ ok: true }, 200);
+        }
+
+        if (action === 'set_password') {
+            const password = typeof body?.password === 'string' ? body.password : '';
+            if (password.length < 6) {
+                return json({ error: 'A senha deve ter pelo menos 6 caracteres.' }, 400);
+            }
+            const { error: updateError } = await adminClient.auth.admin.updateUserById(targetId, { password });
+            if (updateError) {
+                return json({ error: 'Erro ao definir nova senha: ' + updateError.message }, 400);
             }
             return json({ ok: true }, 200);
         }
