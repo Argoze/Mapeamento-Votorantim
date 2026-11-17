@@ -599,11 +599,14 @@ export default function Map() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 w-full">
           <div className="max-w-3xl text-left">
 
-            <span className="inline-flex items-center gap-2 bg-indigo-100/90 dark:bg-indigo-500/20 backdrop-blur-md text-indigo-700 dark:text-indigo-300 text-xs font-bold px-4 py-1.5 rounded-full mb-4 shadow-sm border border-indigo-200/50">
+            {/* No mobile o selo fica apertado colado embaixo da navbar (que
+                é fixed/transparente) — escondido só ali; nos tamanhos maiores
+                continua igual. O espaço que sobra vira margem no título. */}
+            <span className="hidden sm:inline-flex items-center gap-2 bg-indigo-100/90 dark:bg-indigo-500/20 backdrop-blur-md text-indigo-700 dark:text-indigo-300 text-xs font-bold px-4 py-1.5 rounded-full mb-4 shadow-sm border border-indigo-200/50">
               <Megaphone size={13} /> Bem-vindo(a) a Votorantim!
             </span>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1] mb-3 drop-shadow-sm">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.1] mb-3 mt-10 sm:mt-0 drop-shadow-sm">
               Sua cidade,<br /> <span className="text-indigo-600 dark:text-indigo-400">mais perto</span> de você.
             </h1>
 

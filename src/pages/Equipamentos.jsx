@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -174,6 +174,70 @@ export default function Equipamentos() {
     const [categoriaAtiva, setCategoriaAtiva] = useState('Todas');
     const [unidadeSelecionada, setUnidadeSelecionada] = useState(null);
     const [favoritos, setFavoritos] = useState(loadFavoritos);
+    // No mobile o mapa começa "travado" (sem arrastar) pra não competir com o
+    // scroll da página — um toque no aviso libera o arraste. No desktop isso
+    // nunca entra em ação (a flag só muda a partir de um clique que só existe
+    // no overlay, que por sua vez só é renderizado abaixo do breakpoint sm).
+    const [mapaDestravadoMobile, setMapaDestravadoMobile] = useState(false);
+    const [isMobileViewport, setIsMobileViewport] = useState(() =>
+        typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)').matches : false
+    );
+    const mapRef = useRef(null);
+    const mapCardRef = useRef(null);
+    // O ref do MapContainer só aponta pra uma instância real do Leaflet
+    // depois que ele termina de montar — nesse primeiro render mapRef.current
+    // ainda é null. Esse estado existe só pra forçar o efeito abaixo a rodar
+    // de novo assim que a instância existir (useRef sozinho não dispara
+    // re-render/re-efeito quando muda).
+    const [mapaPronto, setMapaPronto] = useState(false);
+
+    // No mobile, abrir o card de detalhes (virou uma "folha" fixa na parte de
+    // baixo da tela — ver UnidadeDetalheModal.jsx) cobriria o mapa inteiro se
+    // a página estivesse rolada pra qualquer lugar. Rolando o card do mapa
+    // pro topo da tela antes de abrir, sobra sempre uma faixa do mapa visível
+    // acima da folha, então dá pra ver os dois ao mesmo tempo (reclamação do
+    // usuário). No desktop o card já fica ao lado do painel, sem precisar
+    // disso — isMobileViewport nunca é true lá.
+    useEffect(() => {
+        if (unidadeSelecionada && isMobileViewport) {
+            mapCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [unidadeSelecionada, isMobileViewport]);
+
+    // Acompanha o breakpoint sm do Tailwind: se a tela crescer pra desktop
+    // (ou girar), o travamento de toque deixa de fazer sentido e some.
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 639px)');
+        const handler = (e) => setIsMobileViewport(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
+
+    // Enquanto estiver no mobile e o mapa ainda não foi "destravado" por um
+    // toque do usuário, desliga o arraste/pinça do Leaflet E o touch-action
+    // nativo do elemento. Só desabilitar o dragging não bastava: o Leaflet
+    // marca o próprio container com "touch-action: none/pinch-zoom" (ver
+    // leaflet.css, classe .leaflet-touch-drag) pra poder interceptar o
+    // gesto de arrastar — e é exatamente esse touch-action que fazia o dedo
+    // "grudar" no mapa em vez de rolar a página por cima dele (reclamação do
+    // usuário). Com "pan-y" o navegador passa a tratar o gesto vertical como
+    // scroll da página normalmente. Cliques/toques em marcadores continuam
+    // funcionando dos dois jeitos, porque não dependem do dragging. No
+    // desktop isMobileViewport nunca é true, então nada disso roda ali.
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        const container = map.getContainer();
+        if (isMobileViewport && !mapaDestravadoMobile) {
+            map.dragging.disable();
+            map.touchZoom.disable();
+            container.style.touchAction = 'pan-y';
+        } else {
+            map.dragging.enable();
+            map.touchZoom.enable();
+            container.style.touchAction = '';
+        }
+    }, [isMobileViewport, mapaDestravadoMobile, mapaPronto]);
 
     useEffect(() => {
         async function fetchUnidades() {
@@ -324,7 +388,7 @@ export default function Equipamentos() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6 mt-6">
                         {/* Mapa com todos os equipamentos */}
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[420px] lg:h-auto">
+                        <div ref={mapCardRef} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[420px] lg:h-auto scroll-mt-24">
                             <div className="flex items-center justify-between gap-3 p-5 pb-0 flex-shrink-0">
                                 <div className="flex items-center gap-2">
                                     <MapPin size={16} className="text-indigo-500" />
@@ -335,7 +399,13 @@ export default function Equipamentos() {
                                 </span>
                             </div>
                             <div className="relative flex-1 mt-4 min-h-[320px]">
-                                <MapContainer center={CENTRO_VOTORANTIM} zoom={13} scrollWheelZoom className="h-full w-full">
+                                <MapContainer
+                                    ref={(instance) => {
+                                        mapRef.current = instance;
+                                        if (instance && !mapaPronto) setMapaPronto(true);
+                                    }}
+                                    center={CENTRO_VOTORANTIM} zoom={13} scrollWheelZoom className="h-full w-full"
+                                >
                                     <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
                                     {unidadesFiltradas
                                         .filter((u) => u.lat && u.lng)
@@ -352,6 +422,22 @@ export default function Equipamentos() {
                                             );
                                         })}
                                 </MapContainer>
+
+                                {/* Só no mobile e só até o primeiro toque: avisa que o mapa está
+                                    "travado" pra não brigar com o scroll da página. É só esse
+                                    selo que recebe toque (não cobre o mapa inteiro), senão os
+                                    próprios marcadores ficariam inacessíveis até destravar. */}
+                                {isMobileViewport && !mapaDestravadoMobile && (
+                                    <div className="sm:hidden absolute inset-x-0 bottom-3 z-[500] flex justify-center pointer-events-none">
+                                        <button
+                                            type="button"
+                                            onClick={() => setMapaDestravadoMobile(true)}
+                                            className="pointer-events-auto bg-slate-900/80 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-md"
+                                        >
+                                            Toque para mover o mapa
+                                        </button>
+                                    </div>
+                                )}
 
                                 <UnidadeDetalheModal
                                     unidade={unidadeSelecionada}

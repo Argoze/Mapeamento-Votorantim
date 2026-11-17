@@ -63,7 +63,7 @@ export default function UnidadeDetalheModal({ unidade, tipoInfo, badgeClass, isF
       role="dialog"
       aria-modal="true"
       aria-label={unidade.nome}
-      className="absolute inset-2 sm:inset-y-2 sm:left-2 sm:right-auto z-[1200] w-auto sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
+      className="fixed inset-x-0 bottom-0 max-h-[52vh] rounded-t-3xl rounded-b-none sm:rounded-2xl sm:max-h-none sm:absolute sm:inset-x-auto sm:bottom-auto sm:inset-y-2 sm:left-2 sm:right-auto z-[1200] w-full sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 shadow-2xl overflow-y-auto custom-scrollbar animate-slide-in-right"
     >
       <button
         type="button"

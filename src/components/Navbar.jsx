@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MapPin, Megaphone, Newspaper, Building2, Menu, X, Accessibility } from 'lucide-react';
+import { MapPin, Megaphone, Newspaper, Building2, Menu, X } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 export default function Navbar() {
@@ -14,6 +14,20 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Menu mobile em tela cheia: trava o scroll do body enquanto ele está
+  // aberto, senão a página por baixo rola junto (e o próprio menu, sendo
+  // fixed inset-0, não precisa rolar o body pra nada).
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   const links = [
     { to: '/', label: 'Mapa', icon: MapPin },
     { to: '/equipamentos', label: 'Equipamentos', icon: Building2 },
@@ -22,14 +36,6 @@ export default function Navbar() {
   ];
 
   const isActive = (path) => location.pathname === path;
-
-  // Abre o painel de acessibilidade flutuante (o botão real fica fixo no
-  // canto da tela — ver AccessibilityToolbar.jsx); este atalho na navbar só
-  // clica nele programaticamente pra manter um ponto de entrada visível
-  // igual o resto do app, sem duplicar toda a lógica do painel aqui.
-  const abrirAcessibilidade = () => {
-    document.getElementById('botao-acessibilidade')?.click();
-  };
 
   return (
     <nav
@@ -100,37 +106,55 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div id="mobile-menu-panel" className="md:hidden pb-4 animate-slide-down">
-            <div className="flex flex-col gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl p-3 shadow-xl border border-slate-100 dark:border-slate-800">
+      </div>
+
+      {/* Mobile Menu — tela cheia (fora do max-w-7xl acima de propósito, pra
+          cobrir a viewport inteira). O botão de acessibilidade não entra
+          aqui: o atalho flutuante (AccessibilityToolbar.jsx) já cumpre esse
+          papel em qualquer página, inclusive com o menu fechado. */}
+      {mobileMenuOpen && (
+        <div
+          id="mobile-menu-panel"
+          className="md:hidden fixed inset-0 z-[60] bg-white dark:bg-slate-900 flex flex-col animate-fade-in"
+        >
+          <div className="flex items-center justify-between px-4 h-16 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+            <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 min-w-0">
+              <img src="/logo-votorantim.png" alt="Prefeitura de Votorantim" className="h-9 w-9 object-contain" />
+              <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-slate-50 truncate">
+                Votorantim <span className="text-gradient">Inteligente</span>
+              </span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Fechar menu de navegação"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto px-4 py-6" aria-label="Navegação principal">
+            <div className="flex flex-col gap-1">
               {links.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}
                   onClick={() => setMobileMenuOpen(false)}
                   aria-current={isActive(to) ? 'page' : undefined}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${isActive(to)
+                  className={`flex items-center gap-4 px-4 py-4 rounded-2xl text-lg font-bold transition-all ${isActive(to)
                     ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                 >
-                  <Icon size={18} />
+                  <Icon size={22} />
                   {label}
                 </Link>
               ))}
-              <button
-                type="button"
-                onClick={() => { setMobileMenuOpen(false); abrirAcessibilidade(); }}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
-              >
-                <Accessibility size={18} />
-                Acessibilidade
-              </button>
             </div>
-          </div>
-        )}
-      </div>
+          </nav>
+        </div>
+      )}
     </nav>
   );
 }
