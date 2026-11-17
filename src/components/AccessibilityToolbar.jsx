@@ -64,6 +64,10 @@ export default function AccessibilityToolbar() {
 
   useEffect(() => {
     const root = document.documentElement;
+    // A classe .a11y-alto-contraste funciona junto com .dark (ou sem ela):
+    // o CSS (ver src/index.css) tem uma variante pra cada tema, reforçando
+    // só os textos/bordas que ficam fracos naquele tema específico — não
+    // força trocar de claro pra escuro nem o contrário.
     root.classList.toggle('a11y-alto-contraste', altoContraste);
     try {
       localStorage.setItem(CONTRASTE_KEY, altoContraste ? '1' : '0');
