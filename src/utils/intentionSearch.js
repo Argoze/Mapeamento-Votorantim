@@ -1,7 +1,3 @@
-// Guia Inteligente de Acolhimento e Busca por Intenção da Rede Municipal
-// Traduz o que o cidadão está sentindo ou precisando (linguagem leiga)
-// para o tipo de serviço correto no SUS/Município (UBS, ESF, UPA, Hospital etc.)
-
 export function normalizeText(text) {
   if (!text) return '';
   return text
@@ -12,10 +8,10 @@ export function normalizeText(text) {
 }
 
 /**
- * Dist\u00e2ncia de Levenshtein entre duas strings: n\u00famero m\u00ednimo de inser\u00e7\u00f5es,
- * remo\u00e7\u00f5es ou substitui\u00e7\u00f5es de caractere para transformar "a" em "b".
- * Implementa\u00e7\u00e3o pr\u00f3pria (sem depend\u00eancia externa) usando apenas um vetor
- * de uma linha para manter custo de mem\u00f3ria baixo.
+ * Distancia de Levenshtein entre duas strings: número mínimo de inserções,
+ * remoções ou substituições de caractere para transformar "a" em "b".
+ * Implementação própria (sem dependência externa) usando apenas um vetor
+ * de uma linha para manter custo de memória baixo.
  */
 function distanciaLevenshtein(a, b) {
   if (a === b) return 0;
@@ -31,9 +27,9 @@ function distanciaLevenshtein(a, b) {
     for (let j = 1; j <= tamB; j++) {
       const custoSubstituicao = a[i - 1] === b[j - 1] ? 0 : 1;
       linhaAtual[j] = Math.min(
-        linhaAtual[j - 1] + 1, // inser\u00e7\u00e3o
-        linhaAnterior[j] + 1, // remo\u00e7\u00e3o
-        linhaAnterior[j - 1] + custoSubstituicao // substitui\u00e7\u00e3o
+        linhaAtual[j - 1] + 1, // inserção
+        linhaAnterior[j] + 1, // remoção
+        linhaAnterior[j - 1] + custoSubstituicao // substituição
       );
     }
     linhaAnterior = linhaAtual;
@@ -43,11 +39,11 @@ function distanciaLevenshtein(a, b) {
 }
 
 /**
- * Verifica se duas palavras s\u00e3o "pr\u00f3ximas o suficiente" para serem
- * consideradas a mesma palavra com erro de digita\u00e7\u00e3o. O limite de
- * toler\u00e2ncia cresce com o tamanho da palavra (erros de digita\u00e7\u00e3o s\u00e3o
- * proporcionalmente mais prov\u00e1veis em palavras longas) e palavras muito
- * curtas (3 letras ou menos) n\u00e3o entram na compara\u00e7\u00e3o para evitar falsos
+ * Verifica se duas palavras são "próximas o suficiente" para serem
+ * consideradas a mesma palavra com erro de digitação. O limite de
+ * tolerância cresce com o tamanho da palavra (erros de digitação são
+ * proporcionalmente mais prováveis em palavras longas) e palavras muito
+ * curtas (3 letras ou menos) não entram na comparação para evitar falsos
  * positivos (ex: "pe" bateria com muita coisa).
  */
 function palavrasSemelhantes(palavraUsuario, palavraKeyword) {
@@ -148,7 +144,7 @@ export const INTENCOES = [
     ],
   },
 
-  // 2. Hospital Municipal (Emergências Gravíssimas / Risco de Vida / Internação / Parto)
+  // 2. Hospital Municipal (emergências graves)
   {
     id: 'hospital_emergencia',
     titulo: 'Hospital Municipal de Votorantim',

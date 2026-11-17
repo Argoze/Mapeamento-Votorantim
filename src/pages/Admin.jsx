@@ -12,13 +12,13 @@ import {
 
   MapPin, Loader2, Star, Eye, Building2,
 
-  Clock, PhoneOff, ImageOff, FileWarning, ArrowRight,
+  Clock, PhoneOff, ImageOff, FileWarning, ArrowRight, ArrowLeft,
 
   Upload, FileSpreadsheet, Download, CheckSquare, Square, AlertTriangle,
 
   History, MessageSquareWarning, CheckCheck, Ban,
 
-  Phone, SkipForward, PartyPopper, ClipboardList, Camera, Timer,
+  Phone, PartyPopper, ClipboardList, Camera, Timer,
 
   TrendingUp, BarChart3, MapPinned, Flame, Filter, Bell, KeyRound, UserX, UserCheck,
 
@@ -290,6 +290,22 @@ export default function Admin() {
 
   const [editingUnidadeId, setEditingUnidadeId] = useState(null);
 
+  // Painel "unidades": por padrão mostra uma tabela com TODAS as unidades
+
+  // cadastradas (de qualquer categoria), e só abre o formulário de
+
+  // cadastro/edição quando o admin escolhe uma linha ou clica em "Nova
+
+  // unidade" — evita o problema de abrir direto num formulário de criação
+
+  // sem visão nenhuma do que já existe.
+
+  const [unidadeCriandoNova, setUnidadeCriandoNova] = useState(false);
+
+  const [unidadesTabelaBusca, setUnidadesTabelaBusca] = useState('');
+
+  const [unidadesTabelaCategoria, setUnidadesTabelaCategoria] = useState('');
+
 
 
   // Completar cadastro em lote (telefone/foto) — fila focada, sem precisar
@@ -308,7 +324,10 @@ export default function Admin() {
 
   const [completarSalvando, setCompletarSalvando] = useState(false);
 
-  const [completarPuladas, setCompletarPuladas] = useState(() => new Set());
+  // Filtro da tabela de "Completar cadastro": permite chegar já filtrado a
+  // partir de um card específico (ex: "Unidades com telefone" no Status dos
+  // Serviços do Dashboard aponta direto para 'telefone').
+  const [completarFiltroTipo, setCompletarFiltroTipo] = useState('todos');
 
 
 
@@ -401,6 +420,12 @@ export default function Admin() {
   const [buscaGlobal, setBuscaGlobal] = useState('');
 
   const [buscaGlobalAberta, setBuscaGlobalAberta] = useState(false);
+
+  // Painel de notificações da topbar (sino) — lista os mesmos avisos
+  // proativos de qualidade/aprovação já calculados para o Dashboard
+  // (alertasProativos, mais abaixo), cada um clicável levando direto para a
+  // tela de revisão correspondente.
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
 
 
 
@@ -1392,6 +1417,20 @@ export default function Admin() {
 
 
 
+  // Fecha o formulário (edição ou criação) e volta para a tabela com a
+
+  // visão geral de todas as unidades.
+
+  const fecharFormularioUnidade = () => {
+
+    resetUnidadeForm();
+
+    setUnidadeCriandoNova(false);
+
+  };
+
+
+
   const handleEditUnidade = (unidade) => {
 
     const categoria = unidade.categoria || 'Saúde';
@@ -1425,6 +1464,8 @@ export default function Admin() {
     setUnidadeImagens(unidade.imagens || []);
 
     setEditingUnidadeId(unidade.id);
+
+    setUnidadeCriandoNova(false);
 
     setMapaRecenterToken(t => t + 1);
 
@@ -1492,9 +1533,9 @@ export default function Admin() {
 
 
 
-      setToast({ message: 'Dados salvos! Indo para o próximo...', type: 'success' });
+      setToast({ message: 'Dados salvos!', type: 'success' });
 
-      setCompletarUnidadeId(null); // libera o efeito para escolher o próximo pendente
+      setCompletarUnidadeId(null); // fecha o formulário de edição e volta pra tabela
 
       await fetchUnidades();
 
@@ -1508,17 +1549,6 @@ export default function Admin() {
 
   };
 
-
-
-  const handlePularCompletarCadastro = () => {
-
-    if (!completarUnidadeId) return;
-
-    setCompletarPuladas(prev => new Set(prev).add(completarUnidadeId));
-
-    setCompletarUnidadeId(null);
-
-  };
 
 
 
@@ -2528,33 +2558,54 @@ export default function Admin() {
 
 
 
-  // Completar cadastro em lote: mantém sempre o primeiro local pendente
+  // Completar cadastro: todas as unidades sem telefone e/ou sem foto, numa
+  // lista/tabela visível de uma vez (em vez da fila "um de cada vez" de
+  // antes) — clicar numa linha abre o formulário de edição daquele item.
+  const unidadesPendentesCompletar = adminUnidades.filter(u => !u.telefone || !u.imagens || u.imagens.length === 0);
+  const unidadesPendentesTelefone = unidadesPendentesCompletar.filter(u => !u.telefone);
+  const unidadesPendentesFoto = unidadesPendentesCompletar.filter(u => !u.imagens || u.imagens.length === 0);
+  const unidadesPendentesFiltradas =
+    completarFiltroTipo === 'telefone' ? unidadesPendentesTelefone
+      : completarFiltroTipo === 'foto' ? unidadesPendentesFoto
+        : unidadesPendentesCompletar;
+  const unidadeEmEdicaoCompletar = completarUnidadeId
+    ? adminUnidades.find(u => u.id === completarUnidadeId) || null
+    : null;
 
-  // (sem telefone ou sem foto, e não pulado nesta sessão) carregado no
+  const abrirEdicaoCompletarCadastro = (unidade) => {
+    setCompletarUnidadeId(unidade.id);
+    setCompletarTelefone(unidade.telefone || '');
+    setCompletarImagens(unidade.imagens || []);
+  };
 
-  // formulário da fila, ajustando o estado durante a renderização — mesmo
-
-  // padrão já usado em UnidadeDetalheModal.jsx para resetar ao trocar de item.
-
-  const unidadePendenteCompletar = adminUnidades.find(u =>
-
-    (!u.telefone || !u.imagens || u.imagens.length === 0) && !completarPuladas.has(u.id)
-
-  );
-
-  if (unidadePendenteCompletar && unidadePendenteCompletar.id !== completarUnidadeId) {
-
-    setCompletarUnidadeId(unidadePendenteCompletar.id);
-
-    setCompletarTelefone(unidadePendenteCompletar.telefone || '');
-
-    setCompletarImagens(unidadePendenteCompletar.imagens || []);
-
-  } else if (!unidadePendenteCompletar && completarUnidadeId !== null) {
-
+  const fecharEdicaoCompletarCadastro = () => {
     setCompletarUnidadeId(null);
+  };
 
-  }
+  // Navegação a partir de cards do Dashboard (Status dos Serviços, KPIs,
+  // notificações) direto para a tabela de Completar Cadastro, já filtrada
+  // pelo tipo de pendência que o card representa.
+  const irParaCompletarCadastro = (tipo = 'todos') => {
+    setCompletarFiltroTipo(tipo);
+    setCompletarUnidadeId(null); // sempre abre na tabela, nunca num formulário que ficou aberto de uma visita anterior
+    setActivePanel('completar_cadastro');
+  };
+
+  // Navegação genérica usada pela sidebar (clique num item do menu): alguns
+  // painéis guardam "qual registro está aberto" (ex: edição de unidade) e,
+  // se o admin sair sem salvar/cancelar, esse estado ficaria pendurado —
+  // ao entrar de novo pelo menu, o painel deve sempre abrir na visão geral
+  // (tabela), nunca num formulário que ficou aberto de uma visita anterior.
+  const navegarPainelAdmin = (panelId) => {
+    if (panelId === 'unidades') {
+      setEditingUnidadeId(null);
+      setUnidadeCriandoNova(false);
+    }
+    if (panelId === 'completar_cadastro') {
+      setCompletarUnidadeId(null);
+    }
+    setActivePanel(panelId);
+  };
 
 
 
@@ -2702,9 +2753,9 @@ export default function Admin() {
 
       children: [
 
-        { id: 'eventos', label: editingEventoId ? 'Editando Evento' : 'Publicar Evento', icon: editingEventoId ? Pencil : Megaphone },
+        { id: 'eventos', label: editingEventoId ? 'Editando evento' : 'Publicar evento', icon: editingEventoId ? Pencil : Megaphone },
 
-        { id: 'gerenciar', label: 'Gerenciar Eventos', icon: Calendar },
+        { id: 'gerenciar', label: 'Gerenciar eventos', icon: Calendar },
 
       ],
 
@@ -2720,9 +2771,9 @@ export default function Admin() {
 
       children: [
 
-        { id: 'noticias', label: editingNoticiaId ? 'Editando Notícia' : 'Publicar Notícia', icon: editingNoticiaId ? Pencil : Newspaper },
+        { id: 'noticias', label: editingNoticiaId ? 'Editando notícia' : 'Publicar notícia', icon: editingNoticiaId ? Pencil : Newspaper },
 
-        { id: 'gerenciar_noticias', label: 'Gerenciar Notícias', icon: Eye },
+        { id: 'gerenciar_noticias', label: 'Gerenciar notícias', icon: Eye },
 
       ],
 
@@ -2738,13 +2789,13 @@ export default function Admin() {
 
       children: [
 
-        { id: 'unidades', label: editingUnidadeId ? 'Editando Unidade' : 'Adicionar Unidade', icon: editingUnidadeId ? Pencil : Building2 },
+        { id: 'unidades', label: editingUnidadeId ? 'Editando unidade' : (unidadeCriandoNova ? 'Nova unidade' : 'Editar unidades'), icon: editingUnidadeId ? Pencil : Building2 },
 
-        { id: 'importar_unidades', label: 'Importar Unidades', icon: Upload },
+        { id: 'importar_unidades', label: 'Importar unidades', icon: Upload },
 
-        { id: 'gerenciar_unidades', label: 'Gerenciar Unidades', icon: MapPin },
+        { id: 'gerenciar_unidades', label: 'Gerenciar unidades', icon: MapPin },
 
-        { id: 'completar_cadastro', label: 'Completar Cadastro', icon: ClipboardList, badge: totalPendenciasQualidade || null },
+        { id: 'completar_cadastro', label: 'Completar cadastro', icon: ClipboardList, badge: totalPendenciasQualidade || null },
 
       ],
 
@@ -2766,7 +2817,7 @@ export default function Admin() {
 
       id: 'correcoes',
 
-      label: 'Correções do Cidadão',
+      label: 'Correções do cidadão',
 
       icon: MessageSquareWarning,
 
@@ -2774,9 +2825,9 @@ export default function Admin() {
 
     },
 
-    { id: 'usuarios', label: 'Gerenciar Usuários', icon: Users },
+    { id: 'usuarios', label: 'Gerenciar usuários', icon: Users },
 
-    { id: 'pagina_inicial', label: 'Página Inicial', icon: Home },
+    { id: 'pagina_inicial', label: 'Página inicial', icon: Home },
 
     {
 
@@ -2788,11 +2839,11 @@ export default function Admin() {
 
       children: [
 
-        { id: 'analytics', label: 'Analytics de Uso', icon: BarChart3 },
+        { id: 'analytics', label: 'Analytics de uso', icon: BarChart3 },
 
-        { id: 'auditoria', label: 'Trilha de Auditoria', icon: History },
+        { id: 'auditoria', label: 'Trilha de auditoria', icon: History },
 
-        { id: 'exportar', label: 'Exportar Dados', icon: Download },
+        { id: 'exportar', label: 'Exportar dados', icon: Download },
 
       ],
 
@@ -2870,7 +2921,7 @@ export default function Admin() {
 
   return (
 
-    <div className="text-slate-800 antialiased min-h-screen bg-slate-50">
+    <div className="text-slate-800 antialiased min-h-screen bg-slate-50 overflow-x-hidden">
 
       {/* Toast */}
 
@@ -2940,7 +2991,7 @@ export default function Admin() {
 
           activePanel={activePanel}
 
-          setActivePanel={setActivePanel}
+          setActivePanel={navegarPainelAdmin}
 
           quickLinks={[
 
@@ -2954,7 +3005,7 @@ export default function Admin() {
 
         {/* Coluna do conteúdo: topbar fixa + painéis */}
 
-        <div className="flex-1 lg:ml-64 flex flex-col min-h-screen mt-12 lg:mt-0">
+        <div className="flex-1 lg:ml-64 flex flex-col min-h-screen mt-14 lg:mt-0 overflow-x-hidden">
 
           {/* Topbar */}
 
@@ -3076,31 +3127,54 @@ export default function Admin() {
 
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
 
-              <button
+              {/* Notificações: mesmos avisos proativos do Dashboard, cada um
+                  clicável levando direto à tela de revisão correspondente. */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNotificacoesAbertas((v) => !v)}
+                  onBlur={() => setTimeout(() => setNotificacoesAbertas(false), 150)}
+                  aria-expanded={notificacoesAbertas}
+                  aria-haspopup="true"
+                  title={alertasProativos.length > 0 ? `${alertasProativos.length} notificação(ões) pendente(s)` : 'Nenhuma notificação pendente'}
+                  className="relative h-10 w-10 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center transition-all"
+                >
+                  <Bell size={16} className="text-slate-500" />
+                  {alertasProativos.length > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {alertasProativos.length}
+                    </span>
+                  )}
+                </button>
 
-                type="button"
-
-                onClick={() => setActivePanel('dashboard')}
-
-                title={alertasProativos.length > 0 ? `${alertasProativos.length} aviso(s) pendente(s) — ver Dashboard` : 'Nenhum aviso pendente'}
-
-                className="relative h-10 w-10 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center transition-all"
-
-              >
-
-                <Bell size={16} className="text-slate-500" />
-
-                {alertasProativos.length > 0 && (
-
-                  <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-
-                    {alertasProativos.length}
-
-                  </span>
-
+                {notificacoesAbertas && (
+                  <div className="fixed left-4 right-4 top-[7.5rem] lg:absolute lg:left-auto lg:right-0 lg:top-full lg:mt-2 lg:w-80 lg:max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-40">
+                    <p className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-400 border-b border-slate-100">
+                      Notificações
+                    </p>
+                    {alertasProativos.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-8 px-4">Nenhuma notificação pendente no momento.</p>
+                    ) : (
+                      <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                        {alertasProativos.map((alerta) => (
+                          <button
+                            key={alerta.chave}
+                            type="button"
+                            onMouseDown={() => {
+                              setActivePanel(alerta.painel);
+                              setNotificacoesAbertas(false);
+                            }}
+                            className="w-full flex items-start gap-2.5 px-4 py-3 hover:bg-slate-50 text-left border-b border-slate-50 last:border-b-0 transition-colors"
+                          >
+                            <span className="h-2 w-2 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                            <span className="text-sm text-slate-700 leading-snug">{alerta.mensagem}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
-
-              </button>
+              </div>
 
               <div className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-slate-200">
 
@@ -3418,17 +3492,17 @@ export default function Admin() {
 
                 const acoesRapidas = [
 
-                  { chave: 'noticia', label: 'Adicionar Notícia', icon: Newspaper, cor: 'bg-cyan-100 text-cyan-600', painel: 'noticias' },
+                  { chave: 'noticia', label: 'Adicionar notícia', icon: Newspaper, cor: 'bg-cyan-100 text-cyan-600', painel: 'noticias' },
 
-                  { chave: 'evento', label: 'Criar Evento', icon: Calendar, cor: 'bg-blue-100 text-blue-600', painel: 'eventos' },
+                  { chave: 'evento', label: 'Criar evento', icon: Calendar, cor: 'bg-blue-100 text-blue-600', painel: 'eventos' },
 
-                  { chave: 'unidade', label: 'Cadastrar Unidade', icon: MapPin, cor: 'bg-indigo-100 text-indigo-600', painel: 'unidades' },
+                  { chave: 'unidade', label: 'Cadastrar unidade', icon: MapPin, cor: 'bg-indigo-100 text-indigo-600', painel: 'unidades' },
 
-                  { chave: 'campanhas', label: 'Gerenciar Campanhas', icon: Megaphone, cor: 'bg-violet-100 text-violet-600', painel: 'gerenciar' },
+                  { chave: 'campanhas', label: 'Gerenciar campanhas', icon: Megaphone, cor: 'bg-violet-100 text-violet-600', painel: 'gerenciar' },
 
-                  { chave: 'relatorios', label: 'Ver Relatórios', icon: BarChart3, cor: 'bg-fuchsia-100 text-fuchsia-600', painel: 'analytics' },
+                  { chave: 'relatorios', label: 'Ver relatórios', icon: BarChart3, cor: 'bg-fuchsia-100 text-fuchsia-600', painel: 'analytics' },
 
-                  { chave: 'pagina_inicial', label: 'Página Inicial', icon: Home, cor: 'bg-amber-100 text-amber-600', painel: 'pagina_inicial' },
+                  { chave: 'pagina_inicial', label: 'Página inicial', icon: Home, cor: 'bg-amber-100 text-amber-600', painel: 'pagina_inicial' },
 
                 ].filter((a) => temAcesso(a.painel));
 
@@ -3436,15 +3510,15 @@ export default function Admin() {
 
                 const statusServicos = [
 
-                  { chave: 'telefone', label: 'Unidades com telefone', valor: qualidadeChecks[0]?.percentualCompleto ?? 100, cor: '#6366f1' },
+                  { chave: 'telefone', label: 'Unidades com telefone', valor: qualidadeChecks[0]?.percentualCompleto ?? 100, cor: '#6366f1', onClick: () => irParaCompletarCadastro('telefone') },
 
-                  { chave: 'foto', label: 'Unidades com foto', valor: qualidadeChecks[1]?.percentualCompleto ?? 100, cor: '#0891b2' },
+                  { chave: 'foto', label: 'Unidades com foto', valor: qualidadeChecks[1]?.percentualCompleto ?? 100, cor: '#0891b2', onClick: () => irParaCompletarCadastro('foto') },
 
-                  { chave: 'conteudo', label: 'Notícias completas', valor: qualidadeChecks[2]?.percentualCompleto ?? 100, cor: '#7c3aed' },
+                  { chave: 'conteudo', label: 'Notícias completas', valor: qualidadeChecks[2]?.percentualCompleto ?? 100, cor: '#7c3aed', onClick: () => setActivePanel('gerenciar_noticias') },
 
-                  { chave: 'aprovacoes', label: 'Conteúdo aprovado', valor: totalPendentesAprovacao === 0 ? 100 : Math.max(0, 100 - totalPendentesAprovacao * 10), cor: '#f59e0b' },
+                  { chave: 'aprovacoes', label: 'Conteúdo aprovado', valor: totalPendentesAprovacao === 0 ? 100 : Math.max(0, 100 - totalPendentesAprovacao * 10), cor: '#f59e0b', onClick: () => setActivePanel('aprovacoes') },
 
-                ];
+                ].filter((s) => s.chave !== 'aprovacoes' || temAcesso('aprovacoes'));
 
                 const totalPendenciasStatus = qualidadeChecks.reduce((soma, c) => soma + c.faltando, 0) + totalPendentesAprovacao;
 
@@ -3632,7 +3706,7 @@ export default function Admin() {
 
                             <h2 className="text-lg font-bold text-slate-800">Atividade do Sistema</h2>
 
-                            <p className="text-xs text-slate-500">Visualizações no mapa e páginas vistas — últimos 14 dias.</p>
+                            <p className="text-xs text-slate-500">Visualizações no mapa e páginas vistas - últimos 14 dias.</p>
 
                           </div>
 
@@ -3720,7 +3794,13 @@ export default function Admin() {
 
                             return (
 
-                              <div key={s.chave} className="flex flex-col items-center text-center">
+                              <button
+                                type="button"
+                                key={s.chave}
+                                onClick={s.onClick}
+                                title={`Ver detalhes: ${s.label}`}
+                                className="flex flex-col items-center text-center rounded-xl p-2 -m-2 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                              >
 
                                 <svg viewBox="0 0 64 64" className="h-16 w-16">
 
@@ -3744,7 +3824,7 @@ export default function Admin() {
 
                                 <p className="text-[11px] font-semibold text-slate-500 mt-1.5 leading-tight">{s.label}</p>
 
-                              </div>
+                              </button>
 
                             );
 
@@ -3780,7 +3860,7 @@ export default function Admin() {
 
                             <div className="flex items-center gap-3">
 
-                              <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                              <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                                 <Clock className="text-slate-600" size={20} />
 
@@ -3788,7 +3868,7 @@ export default function Admin() {
 
                               <div>
 
-                                <h2 className="text-lg font-bold text-slate-800">Atividades Recentes</h2>
+                                <h2 className="text-lg font-bold text-slate-800">Atividades recentes</h2>
 
                                 <p className="text-xs text-slate-500">Últimos cadastros e publicações, de todas as áreas.</p>
 
@@ -3876,7 +3956,7 @@ export default function Admin() {
 
                             <Zap size={16} className="text-amber-500" />
 
-                            <h2 className="text-lg font-bold text-slate-800">Ações Rápidas</h2>
+                            <h2 className="text-lg font-bold text-slate-800">Ações rápidas</h2>
 
                           </div>
 
@@ -3938,11 +4018,11 @@ export default function Admin() {
 
                   <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
 
-                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4 flex-wrap">
 
                       <div className="flex items-center gap-3">
 
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingEventoId ? 'bg-amber-100' : 'bg-indigo-100'}`}>
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${editingEventoId ? 'bg-amber-100' : 'bg-indigo-100'}`}>
 
                           {editingEventoId ? <Pencil className="text-amber-600" size={20} /> : <Megaphone className="text-indigo-600" size={20} />}
 
@@ -4196,7 +4276,7 @@ export default function Admin() {
 
                     <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                      <div className="h-10 w-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                      <div className="h-10 w-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                         <Calendar className="text-orange-600" size={20} />
 
@@ -4242,13 +4322,13 @@ export default function Admin() {
 
                           <div key={evento.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingEventoId === evento.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
 
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-3">
 
-                              <div className="flex-1 min-w-0">
+                              <div className="min-w-0">
 
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
 
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white flex-shrink-0 ${evento.tipo === 'Urgente' ? 'bg-red-500' : 'bg-blue-500'
 
                                     }`}>
 
@@ -4258,7 +4338,7 @@ export default function Admin() {
 
                                   {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
 
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 flex items-center gap-1 flex-shrink-0">
 
                                       <Timer size={10} /> Agendado
 
@@ -4266,29 +4346,29 @@ export default function Admin() {
 
                                   )}
 
-                                  <h4 className="font-bold text-slate-800 text-sm truncate">{evento.titulo}</h4>
-
                                 </div>
 
-                                <p className="text-xs text-slate-500 line-clamp-1">{evento.descricao}</p>
+                                <h4 className="font-bold text-slate-800 text-sm mb-1 break-words">{evento.titulo}</h4>
 
-                                <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400">
+                                <p className="text-xs text-slate-500 line-clamp-2">{evento.descricao}</p>
 
-                                  <span className="flex items-center gap-1"><Calendar size={11} /> {evento.data_evento}</span>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-400 min-w-0">
 
-                                  <span className="flex items-center gap-1"><MapPin size={11} /> {evento.local_evento}</span>
+                                  <span className="flex items-center gap-1 min-w-0"><Calendar size={11} className="flex-shrink-0" /> {evento.data_evento}</span>
+
+                                  <span className="flex items-center gap-1 min-w-0 w-full sm:w-auto"><MapPin size={11} className="flex-shrink-0" /> <span className="break-words">{evento.local_evento}</span></span>
 
                                   {evento.imagens && evento.imagens.length > 0 && (
 
-                                    <span className="text-purple-500 font-bold">📷 {evento.imagens.length} img</span>
+                                    <span className="text-purple-500 font-bold flex-shrink-0">📷 {evento.imagens.length} img</span>
 
                                   )}
 
                                   {evento.publicar_em && new Date(evento.publicar_em).getTime() > Date.now() && (
 
-                                    <span className="flex items-center gap-1 text-indigo-500 font-semibold">
+                                    <span className="flex items-center gap-1 text-indigo-500 font-semibold min-w-0">
 
-                                      <Timer size={11} /> publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                      <Timer size={11} className="flex-shrink-0" /> <span className="truncate">publica em {new Date(evento.publicar_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
 
                                     </span>
 
@@ -4300,11 +4380,11 @@ export default function Admin() {
 
 
 
-                              <div className="flex-shrink-0 flex items-center gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
 
                                 {showDeleteConfirm === evento.id ? (
 
-                                  <div className="flex items-center gap-2 animate-fade-in">
+                                  <div className="flex items-center gap-2 animate-fade-in w-full justify-end flex-wrap">
 
                                     <button
 
@@ -4344,13 +4424,13 @@ export default function Admin() {
 
                                       onClick={() => handleEditEvento(evento)}
 
-                                      className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Editar evento"
 
                                     >
 
-                                      <Pencil size={16} />
+                                      <Pencil size={14} /> Editar
 
                                     </button>
 
@@ -4358,13 +4438,13 @@ export default function Admin() {
 
                                       onClick={() => setShowDeleteConfirm(evento.id)}
 
-                                      className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Excluir evento"
 
                                     >
 
-                                      <Trash2 size={16} />
+                                      <Trash2 size={14} /> Excluir
 
                                     </button>
 
@@ -4400,11 +4480,11 @@ export default function Admin() {
 
                   <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
 
-                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4 flex-wrap">
 
                       <div className="flex items-center gap-3">
 
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingNoticiaId ? 'bg-amber-100' : 'bg-cyan-100'}`}>
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${editingNoticiaId ? 'bg-amber-100' : 'bg-cyan-100'}`}>
 
                           {editingNoticiaId ? <Pencil className="text-amber-600" size={20} /> : <Newspaper className="text-cyan-600" size={20} />}
 
@@ -4548,7 +4628,7 @@ export default function Admin() {
 
                     <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                      <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                      <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                         <Eye className="text-purple-600" size={20} />
 
@@ -4594,9 +4674,9 @@ export default function Admin() {
 
                           <div key={noticia.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingNoticiaId === noticia.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
 
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-3">
 
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <div className="flex items-start gap-3 min-w-0">
 
                                 {noticia.imagem_url && (
 
@@ -4606,19 +4686,15 @@ export default function Admin() {
 
                                 <div className="flex-1 min-w-0">
 
-                                  <div className="flex items-center gap-2 mb-1">
+                                  {noticia.destaque && (
 
-                                    {noticia.destaque && (
+                                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mb-1">⭐ Destaque</span>
 
-                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⭐ Destaque</span>
+                                  )}
 
-                                    )}
+                                  <h4 className="font-bold text-slate-800 text-sm mb-1 break-words">{noticia.titulo}</h4>
 
-                                    <h4 className="font-bold text-slate-800 text-sm truncate">{noticia.titulo}</h4>
-
-                                  </div>
-
-                                  <p className="text-xs text-slate-500 line-clamp-1">{noticia.resumo}</p>
+                                  <p className="text-xs text-slate-500 line-clamp-2">{noticia.resumo}</p>
 
                                   <span className="text-[11px] text-slate-400 mt-1 block">
 
@@ -4632,11 +4708,11 @@ export default function Admin() {
 
 
 
-                              <div className="flex-shrink-0 flex items-center gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
 
                                 {deleteNoticiaConfirm === noticia.id ? (
 
-                                  <div className="flex items-center gap-2 animate-fade-in">
+                                  <div className="flex items-center gap-2 animate-fade-in w-full justify-end flex-wrap">
 
                                     <button
 
@@ -4676,13 +4752,13 @@ export default function Admin() {
 
                                       onClick={() => handleEditNoticia(noticia)}
 
-                                      className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Editar notícia"
 
                                     >
 
-                                      <Pencil size={16} />
+                                      <Pencil size={14} /> Editar
 
                                     </button>
 
@@ -4690,13 +4766,13 @@ export default function Admin() {
 
                                       onClick={() => setDeleteNoticiaConfirm(noticia.id)}
 
-                                      className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Excluir notícia"
 
                                     >
 
-                                      <Trash2 size={16} />
+                                      <Trash2 size={14} /> Excluir
 
                                     </button>
 
@@ -4732,11 +4808,11 @@ export default function Admin() {
 
                   <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
 
-                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
 
                       <div className="flex items-center gap-3">
 
-                        <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                           <Users className="text-emerald-600" size={20} />
 
@@ -4758,7 +4834,7 @@ export default function Admin() {
 
                         onClick={() => setMostrarCriarUsuario((v) => !v)}
 
-                        className="shrink-0 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
+                        className="shrink-0 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
 
                       >
 
@@ -5016,7 +5092,7 @@ export default function Admin() {
 
                                 ) : (
 
-                                  <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
 
                                     <button
 
@@ -5610,7 +5686,7 @@ export default function Admin() {
 
                     <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                      <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                      <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                         <CheckCheck className="text-emerald-600" size={20} />
 
@@ -5654,7 +5730,7 @@ export default function Admin() {
 
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
 
                               <button
 
@@ -5712,7 +5788,7 @@ export default function Admin() {
 
                             </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
 
                               <button
 
@@ -5770,49 +5846,291 @@ export default function Admin() {
 
                 <div className="animate-fade-in">
 
-                  <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+                  {!editingUnidadeId && !unidadeCriandoNova ? (
 
-                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4 flex-wrap">
 
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${editingUnidadeId ? 'bg-amber-100' : 'bg-indigo-100'}`}>
+                        <div className="flex items-center gap-3">
 
-                          {editingUnidadeId ? <Pencil className="text-amber-600" size={20} /> : <Building2 className="text-indigo-600" size={20} />}
+                          <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+
+                            <Building2 className="text-indigo-600" size={20} />
+
+                          </div>
+
+                          <div>
+
+                            <h2 className="text-xl font-bold text-slate-800">Editar Unidades</h2>
+
+                            <p className="text-sm text-slate-500">{adminUnidades.length} local(is) cadastrado(s) — clique em uma unidade para editar.</p>
+
+                          </div>
 
                         </div>
-
-                        <div>
-
-                          <h2 className="text-xl font-bold text-slate-800">{editingUnidadeId ? 'Editar unidade de saúde' : 'Cadastrar nova unidade de saúde'}</h2>
-
-                          <p className="text-sm text-slate-500">{editingUnidadeId ? 'Altere os campos e salve para atualizar o mapa.' : 'Adicione uma UBS, ESF, Hospital ou UPA no mapa da cidade.'}</p>
-
-                        </div>
-
-                      </div>
-
-                      {editingUnidadeId && (
 
                         <button
 
                           type="button"
 
-                          onClick={resetUnidadeForm}
+                          onClick={() => { resetUnidadeForm(); setUnidadeCriandoNova(true); }}
+
+                          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all shrink-0"
+
+                        >
+
+                          <Plus size={16} /> Nova unidade
+
+                        </button>
+
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+
+                        <div className="relative flex-1">
+
+                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+
+                          <input
+
+                            type="text"
+
+                            value={unidadesTabelaBusca}
+
+                            onChange={e => setUnidadesTabelaBusca(e.target.value)}
+
+                            placeholder="Buscar por nome ou endereço..."
+
+                            className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+
+                          />
+
+                        </div>
+
+                        <select
+
+                          value={unidadesTabelaCategoria}
+
+                          onChange={e => setUnidadesTabelaCategoria(e.target.value)}
+
+                          className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+
+                        >
+
+                          <option value="">Todas as categorias</option>
+
+                          <option value="Saúde">🏥 Saúde</option>
+
+                          <option value="Educação">🎓 Educação</option>
+
+                          <option value="Cultura">🎭 Cultura</option>
+
+                          <option value="Governo">🏛️ Governo</option>
+
+                          <option value="Lazer">🌳 Lazer</option>
+
+                          <option value="Biblioteca">📚 Biblioteca</option>
+
+                        </select>
+
+                      </div>
+
+                      {(() => {
+
+                        const termoBusca = unidadesTabelaBusca.trim().toLowerCase();
+
+                        const unidadesFiltradas = adminUnidades.filter((u) => {
+
+                          if (unidadesTabelaCategoria && (u.categoria || '') !== unidadesTabelaCategoria) return false;
+
+                          if (!termoBusca) return true;
+
+                          return (u.nome || '').toLowerCase().includes(termoBusca) || (u.endereco || '').toLowerCase().includes(termoBusca);
+
+                        });
+
+                        if (adminUnidadesLoading) {
+
+                          return (
+
+                            <div className="text-center py-10 text-slate-500">
+
+                              <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+
+                              Carregando unidades...
+
+                            </div>
+
+                          );
+
+                        }
+
+                        if (unidadesFiltradas.length === 0) {
+
+                          return (
+
+                            <div className="text-center py-10">
+
+                              <div className="text-4xl mb-3">📍</div>
+
+                              <p className="text-slate-500 font-medium">
+
+                                {adminUnidades.length === 0 ? 'Nenhuma unidade cadastrada ainda.' : 'Nenhuma unidade encontrada com esse filtro.'}
+
+                              </p>
+
+                            </div>
+
+                          );
+
+                        }
+
+                        return (
+
+                          <>
+
+                            <div className="sm:hidden space-y-2 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+
+                              {unidadesFiltradas.map((u) => (
+
+                                <button
+
+                                  key={u.id}
+
+                                  type="button"
+
+                                  onClick={() => handleEditUnidade(u)}
+
+                                  className="w-full text-left bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-300 hover:shadow-sm transition-all"
+
+                                >
+
+                                  <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 mb-1">
+
+                                    {u.categoria || 'Outros'}
+
+                                  </span>
+
+                                  <p className="font-semibold text-slate-800 break-words">{u.nome}</p>
+
+                                  <p className="text-xs text-slate-400 break-words">{u.endereco}</p>
+
+                                </button>
+
+                              ))}
+
+                            </div>
+
+                            <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
+
+                              <table className="w-full text-sm">
+
+                                <thead className="bg-slate-50 border-b border-slate-200">
+
+                                  <tr>
+
+                                    <th className="text-left px-4 py-2.5 font-semibold text-slate-600">Unidade</th>
+
+                                    <th className="hidden md:table-cell text-left px-4 py-2.5 font-semibold text-slate-600">Categoria</th>
+
+                                    <th className="text-right px-4 py-2.5 font-semibold text-slate-600">Ação</th>
+
+                                  </tr>
+
+                                </thead>
+
+                                <tbody className="divide-y divide-slate-100">
+
+                                  {unidadesFiltradas.map((u) => (
+
+                                    <tr
+
+                                      key={u.id}
+
+                                      onClick={() => handleEditUnidade(u)}
+
+                                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+
+                                    >
+
+                                      <td className="px-4 py-3 max-w-[220px] md:max-w-sm">
+
+                                        <p className="font-semibold text-slate-800 truncate">{u.nome}</p>
+
+                                        <p className="text-xs text-slate-400 truncate">{u.endereco}</p>
+
+                                      </td>
+
+                                      <td className="hidden md:table-cell px-4 py-3 text-slate-500 whitespace-nowrap">{u.categoria || 'Outros'}</td>
+
+                                      <td className="px-4 py-3 text-right">
+
+                                        <span className="inline-flex items-center gap-1 text-indigo-600 font-semibold text-xs">
+
+                                          Editar <ArrowRight size={13} />
+
+                                        </span>
+
+                                      </td>
+
+                                    </tr>
+
+                                  ))}
+
+                                </tbody>
+
+                              </table>
+
+                            </div>
+
+                          </>
+
+                        );
+
+                      })()}
+
+                    </div>
+
+                  ) : (
+
+                    <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
+
+                      <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4 flex-wrap">
+
+                        <div className="flex items-center gap-3">
+
+                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${editingUnidadeId ? 'bg-amber-100' : 'bg-indigo-100'}`}>
+
+                            {editingUnidadeId ? <Pencil className="text-amber-600" size={20} /> : <Building2 className="text-indigo-600" size={20} />}
+
+                          </div>
+
+                          <div>
+
+                            <h2 className="text-xl font-bold text-slate-800">{editingUnidadeId ? 'Editar unidade' : 'Cadastrar nova unidade'}</h2>
+
+                            <p className="text-sm text-slate-500">{editingUnidadeId ? 'Altere os campos e salve para atualizar o mapa.' : 'Adicione um equipamento (unidade de saúde, escola, espaço cultural etc.) no mapa da cidade.'}</p>
+
+                          </div>
+
+                        </div>
+
+                        <button
+
+                          type="button"
+
+                          onClick={fecharFormularioUnidade}
 
                           className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors shrink-0"
 
                         >
 
-                          <XCircle size={14} /> Cancelar edição
+                          <ArrowLeft size={14} /> Voltar para a lista
 
                         </button>
 
-                      )}
-
-                    </div>
-
-
+                      </div>
 
                     <form onSubmit={handlePublishUnidade} className="space-y-4">
 
@@ -5936,7 +6254,7 @@ export default function Admin() {
 
                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Endereço completo</label>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap sm:flex-nowrap gap-2">
 
                           <input
 
@@ -5948,7 +6266,7 @@ export default function Admin() {
 
                             onChange={e => setUnidadeEndereco(e.target.value)}
 
-                            className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="flex-1 min-w-[180px] px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
 
                             placeholder="Ex: Avenida São João, 200 - Centro"
 
@@ -5962,7 +6280,7 @@ export default function Admin() {
 
                             onClick={handleGeocode}
 
-                            className="px-4 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-sm transition-all flex items-center gap-1.5 disabled:opacity-60 shrink-0 animate-transition"
+                            className="w-full sm:w-auto px-4 py-3 sm:py-0 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 shrink-0 animate-transition"
 
                           >
 
@@ -6110,47 +6428,75 @@ export default function Admin() {
 
 
 
-                      <button
+                      <div className="flex items-center gap-3">
 
-                        type="submit"
+                        {editingUnidadeId && (
 
-                        disabled={unidadePublishLoading}
+                          <button
 
-                        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                            type="button"
 
-                      >
+                            onClick={fecharFormularioUnidade}
 
-                        {unidadePublishLoading ? (
+                            disabled={unidadePublishLoading}
 
-                          <>
+                            className="flex items-center gap-1.5 px-4 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60 shrink-0"
 
-                            <Loader2 size={18} className="animate-spin" />
+                          >
 
-                            Salvando local...
+                            Cancelar edição
 
-                          </>
-
-                        ) : (
-
-                          <>
-
-                            {editingUnidadeId ? <Pencil size={18} /> : <Plus size={18} />}
-
-                            {editingUnidadeId ? 'Salvar alterações' : 'Cadastrar local no mapa'}
-
-                          </>
+                          </button>
 
                         )}
 
-                      </button>
+                        <button
+
+                          type="submit"
+
+                          disabled={unidadePublishLoading}
+
+                          className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+
+                        >
+
+                          {unidadePublishLoading ? (
+
+                            <>
+
+                              <Loader2 size={18} className="animate-spin" />
+
+                              Salvando local...
+
+                            </>
+
+                          ) : (
+
+                            <>
+
+                              {editingUnidadeId ? <Pencil size={18} /> : <Plus size={18} />}
+
+                              {editingUnidadeId ? 'Salvar alterações' : 'Cadastrar local no mapa'}
+
+                            </>
+
+                          )}
+
+                        </button>
+
+                      </div>
 
                     </form>
 
-                  </div>
+
+                    </div>
+
+                  )}
 
                 </div>
 
               )}
+
 
 
 
@@ -6164,7 +6510,7 @@ export default function Admin() {
 
                     <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                      <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center">
+                      <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                         <Upload className="text-teal-600" size={20} />
 
@@ -6476,7 +6822,7 @@ export default function Admin() {
 
                     <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                      <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                      <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                         <MapPin className="text-indigo-600" size={20} />
 
@@ -6484,7 +6830,7 @@ export default function Admin() {
 
                       <div>
 
-                        <h2 className="text-xl font-bold text-slate-800">Gerenciar Unidades de Saúde</h2>
+                        <h2 className="text-xl font-bold text-slate-800">Gerenciar Unidades</h2>
 
                         <p className="text-sm text-slate-500">{adminUnidades.length} local(is) cadastrado(s)</p>
 
@@ -6522,9 +6868,9 @@ export default function Admin() {
 
                           <div key={unidade.id} className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-all group ${editingUnidadeId === unidade.id ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-100'}`}>
 
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-3">
 
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
+                              <div className="flex items-start gap-3 min-w-0">
 
                                 {unidade.imagens && unidade.imagens.length > 0 ? (
 
@@ -6542,19 +6888,15 @@ export default function Admin() {
 
                                 <div className="flex-1 min-w-0">
 
-                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 mb-1">
 
-                                    <h4 className="font-bold text-slate-800 text-sm truncate">{unidade.nome}</h4>
+                                    {unidade.categoria || 'Outros'}
 
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 flex-shrink-0">
+                                  </span>
 
-                                      {unidade.categoria || 'Saúde'}
+                                  <h4 className="font-bold text-slate-800 text-sm mb-1 break-words">{unidade.nome}</h4>
 
-                                    </span>
-
-                                  </div>
-
-                                  <p className="text-xs text-slate-500 line-clamp-1">{unidade.endereco}</p>
+                                  <p className="text-xs text-slate-500 break-words">{unidade.endereco}</p>
 
                                   <span className="text-[10px] text-slate-400 mt-1 block font-mono">
 
@@ -6568,11 +6910,11 @@ export default function Admin() {
 
 
 
-                              <div className="flex-shrink-0 flex items-center gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
 
                                 {deleteUnidadeConfirm === unidade.id ? (
 
-                                  <div className="flex items-center gap-2 animate-fade-in">
+                                  <div className="flex items-center gap-2 animate-fade-in w-full justify-end flex-wrap">
 
                                     <button
 
@@ -6612,13 +6954,13 @@ export default function Admin() {
 
                                       onClick={() => handleEditUnidade(unidade)}
 
-                                      className="bg-amber-50 hover:bg-amber-100 text-amber-600 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Editar unidade"
 
                                     >
 
-                                      <Pencil size={16} />
+                                      <Pencil size={14} /> Editar
 
                                     </button>
 
@@ -6626,13 +6968,13 @@ export default function Admin() {
 
                                       onClick={() => setDeleteUnidadeConfirm(unidade.id)}
 
-                                      className="opacity-0 group-hover:opacity-100 bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg transition-all"
+                                      className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
 
                                       title="Excluir local"
 
                                     >
 
-                                      <Trash2 size={16} />
+                                      <Trash2 size={14} /> Excluir
 
                                     </button>
 
@@ -6663,315 +7005,273 @@ export default function Admin() {
               {/* Panel: Completar cadastro em lote (telefone/foto) */}
 
               {activePanel === 'completar_cadastro' && (() => {
+                const totalPendentesGeral = unidadesPendentesCompletar.length;
+                const emEdicao = unidadeEmEdicaoCompletar;
 
-                const totalPendentesInicial = adminUnidades.filter(u => !u.telefone || !u.imagens || u.imagens.length === 0).length;
-
-                const restantes = adminUnidades.filter(u =>
-
-                  (!u.telefone || !u.imagens || u.imagens.length === 0) && !completarPuladas.has(u.id)
-
-                ).length;
-
-                const concluidos = totalPendentesInicial - restantes;
-
-
+                const filtros = [
+                  { id: 'todos', label: 'Todos', count: unidadesPendentesCompletar.length },
+                  { id: 'telefone', label: 'Sem telefone', count: unidadesPendentesTelefone.length },
+                  { id: 'foto', label: 'Sem foto', count: unidadesPendentesFoto.length },
+                ];
 
                 return (
-
                   <div className="animate-fade-in">
-
                     <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
-
                       <div className="flex items-center gap-3 mb-2 border-b border-slate-100 pb-4">
-
-                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
-
+                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
                           <ClipboardList className="text-amber-600" size={20} />
-
                         </div>
-
                         <div className="flex-1 min-w-0">
-
                           <h2 className="text-xl font-bold text-slate-800">Completar cadastro</h2>
-
-                          <p className="text-sm text-slate-500">Preencha telefone e foto um local de cada vez, sem precisar abrir o formulário completo.</p>
-
+                          <p className="text-sm text-slate-500">
+                            {emEdicao
+                              ? 'Preencha telefone e/ou foto desta unidade.'
+                              : 'Veja todas as unidades pendentes de uma vez e clique em uma para completar o cadastro.'}
+                          </p>
                         </div>
-
                       </div>
 
-
-
-                      {totalPendentesInicial === 0 ? (
-
+                      {totalPendentesGeral === 0 ? (
                         <div className="text-center py-14">
-
                           <PartyPopper size={40} className="text-emerald-500 mx-auto mb-3" />
-
                           <p className="text-slate-700 font-bold">Tudo certo por aqui!</p>
-
                           <p className="text-sm text-slate-500 mt-1">Todas as unidades já têm telefone e pelo menos uma foto cadastrados.</p>
-
                         </div>
-
-                      ) : !unidadePendenteCompletar ? (
-
-                        <div className="text-center py-14">
-
-                          <PartyPopper size={40} className="text-emerald-500 mx-auto mb-3" />
-
-                          <p className="text-slate-700 font-bold">Você completou todos os pendentes desta sessão!</p>
-
-                          <p className="text-sm text-slate-500 mt-1">
-
-                            {completarPuladas.size > 0
-
-                              ? `Ainda restam ${completarPuladas.size} local(is) que você pulou — recarregue a página para revê-los.`
-
-                              : 'Nenhuma unidade pendente no momento.'}
-
-                          </p>
-
-                        </div>
-
-                      ) : (
-
+                      ) : emEdicao ? (
+                        /* ---------- Formulário de edição de UMA unidade ---------- */
                         <div className="pt-5">
-
-                          {/* Barra de progresso */}
-
-                          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1.5">
-
-                            <span>{concluidos} de {totalPendentesInicial} concluídos nesta sessão</span>
-
-                            <span>{Math.round((concluidos / totalPendentesInicial) * 100)}%</span>
-
-                          </div>
-
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-6">
-
-                            <div
-
-                              className="h-full bg-amber-500 rounded-full transition-all"
-
-                              style={{ width: `${(concluidos / totalPendentesInicial) * 100}%` }}
-
-                            />
-
-                          </div>
-
-
+                          <button
+                            type="button"
+                            onClick={fecharEdicaoCompletarCadastro}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800 mb-5 transition-colors"
+                          >
+                            <ArrowLeft size={15} />
+                            Voltar para a lista
+                          </button>
 
                           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
-
                             <div className="flex items-start gap-3">
-
-                              {unidadePendenteCompletar.imagens && unidadePendenteCompletar.imagens.length > 0 ? (
-
-                                <img src={unidadePendenteCompletar.imagens[0]} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-
+                              {emEdicao.imagens && emEdicao.imagens.length > 0 ? (
+                                <img src={emEdicao.imagens[0]} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
                               ) : (
-
                                 <div className="w-16 h-16 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400 flex-shrink-0">
-
                                   <Building2 size={26} />
-
                                 </div>
-
                               )}
-
                               <div className="flex-1 min-w-0">
-
                                 <div className="flex items-center gap-1.5 flex-wrap">
-
-                                  <h3 className="font-bold text-slate-800">{unidadePendenteCompletar.nome}</h3>
-
+                                  <h3 className="font-bold text-slate-800">{emEdicao.nome}</h3>
                                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600 flex-shrink-0">
-
-                                    {unidadePendenteCompletar.categoria || 'Saúde'}
-
+                                    {emEdicao.categoria || 'Saúde'}
                                   </span>
-
                                 </div>
-
-                                <p className="text-sm text-slate-500">{unidadePendenteCompletar.endereco}</p>
-
+                                <p className="text-sm text-slate-500">{emEdicao.endereco}</p>
                                 <div className="flex flex-wrap gap-2 mt-2.5">
-
                                   <a
-
-                                    href={buildGoogleMapsSearchUrl(unidadePendenteCompletar)}
-
+                                    href={buildGoogleMapsSearchUrl(emEdicao)}
                                     target="_blank"
-
                                     rel="noopener noreferrer"
-
                                     className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-
                                   >
-
                                     <ExternalLink size={13} />
-
                                     Buscar no Google Maps
-
                                   </a>
-
                                   <a
-
-                                    href={buildStreetViewUrl(unidadePendenteCompletar)}
-
+                                    href={buildStreetViewUrl(emEdicao)}
                                     target="_blank"
-
                                     rel="noopener noreferrer"
-
                                     className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
-
                                   >
-
                                     <Camera size={13} />
-
                                     Ver no Street View
-
                                   </a>
-
                                 </div>
-
                                 <p className="text-[11px] text-slate-400 mt-2">
-
                                   Dica: no Google Maps, copie o telefone do perfil do local; se não tiver foto cadastrada, tire um print do Street View e envie aqui embaixo.
-
                                 </p>
-
                               </div>
-
                             </div>
-
                           </div>
-
-
 
                           <div className="space-y-4">
-
                             <div>
-
                               <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-
                                 <Phone size={14} /> Telefone
-
                               </label>
-
                               <input
-
                                 type="tel"
-
                                 value={completarTelefone}
-
                                 onChange={e => setCompletarTelefone(e.target.value)}
-
                                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all"
-
                                 placeholder="Ex: (15) 3347-0000"
-
                               />
-
                             </div>
 
-
-
-                            <div>
-
-                              <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-
-                                <Camera size={14} /> Foto do local
-
-                              </label>
-
+                            <div className="pt-4 border-t border-slate-100">
+                              <h3 className="text-base font-bold text-slate-800 mb-2">Foto do local</h3>
                               <ImageUpload
-
                                 images={completarImagens}
-
                                 onImagesChange={setCompletarImagens}
-
                                 maxImages={10}
-
                                 folder="unidades"
-
                               />
-
                             </div>
-
                           </div>
-
-
 
                           <div className="flex items-center gap-3 mt-6 pt-5 border-t border-slate-100">
-
                             <button
-
                               type="button"
-
-                              onClick={handlePularCompletarCadastro}
-
+                              onClick={fecharEdicaoCompletarCadastro}
                               disabled={completarSalvando}
-
                               className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60"
-
                             >
-
-                              <SkipForward size={16} />
-
-                              Pular por agora
-
+                              Cancelar
                             </button>
-
                             <button
-
                               type="button"
-
                               onClick={handleSalvarCompletarCadastro}
-
                               disabled={completarSalvando}
-
                               className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-60"
-
                             >
-
                               {completarSalvando ? (
-
                                 <>
-
                                   <Loader2 size={18} className="animate-spin" />
-
                                   Salvando...
-
                                 </>
-
                               ) : (
-
                                 <>
-
                                   <CheckCheck size={18} />
-
-                                  Salvar e avançar
-
+                                  Salvar
                                 </>
-
                               )}
-
                             </button>
-
+                          </div>
+                        </div>
+                      ) : (
+                        /* ---------- Tabela/lista com todos os pendentes visíveis de uma vez ---------- */
+                        <div className="pt-5">
+                          <div className="flex flex-wrap items-center gap-2 mb-5">
+                            <Filter size={15} className="text-slate-400 mr-0.5 flex-shrink-0" />
+                            {filtros.map((f) => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setCompletarFiltroTipo(f.id)}
+                                aria-pressed={completarFiltroTipo === f.id}
+                                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all ${completarFiltroTipo === f.id
+                                  ? 'bg-amber-500 text-white shadow-sm'
+                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
+                              >
+                                {f.label} ({f.count})
+                              </button>
+                            ))}
                           </div>
 
+                          {unidadesPendentesFiltradas.length === 0 ? (
+                            <div className="text-center py-10">
+                              <PartyPopper size={32} className="text-emerald-500 mx-auto mb-2" />
+                              <p className="text-slate-600 font-semibold text-sm">Nenhuma pendência deste tipo.</p>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Mobile: lista de cards empilhados — nunca uma tabela com
+                                  scroll horizontal da página. */}
+                              <div className="space-y-2.5 sm:hidden">
+                                {unidadesPendentesFiltradas.map((u) => (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => abrirEdicaoCompletarCadastro(u)}
+                                    className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-4 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-slate-800 truncate">{u.nome}</p>
+                                        <p className="text-xs text-slate-500 truncate mt-0.5">{u.endereco}</p>
+                                      </div>
+                                      <ArrowRight size={15} className="text-slate-300 flex-shrink-0 mt-0.5" />
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                                      {!u.telefone && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-red-50 text-red-600">
+                                          <PhoneOff size={10} /> Sem telefone
+                                        </span>
+                                      )}
+                                      {(!u.imagens || u.imagens.length === 0) && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-red-50 text-red-600">
+                                          <ImageOff size={10} /> Sem foto
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Tablet/desktop: tabela de verdade, toda contida no card
+                                  (sem overflow para fora da página). */}
+                              <div className="hidden sm:block overflow-hidden rounded-xl border border-slate-200">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                                    <tr>
+                                      <th className="text-left font-bold px-4 py-3">Unidade</th>
+                                      <th className="hidden md:table-cell text-left font-bold px-4 py-3">Categoria</th>
+                                      <th className="text-left font-bold px-4 py-3">Telefone</th>
+                                      <th className="text-left font-bold px-4 py-3">Foto</th>
+                                      <th className="px-4 py-3" scope="col"><span className="sr-only">Ação</span></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {unidadesPendentesFiltradas.map((u) => (
+                                      <tr
+                                        key={u.id}
+                                        onClick={() => abrirEdicaoCompletarCadastro(u)}
+                                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                                      >
+                                        <td className="px-4 py-3 max-w-[160px] md:max-w-xs">
+                                          <p className="font-semibold text-slate-800 truncate">{u.nome}</p>
+                                          <p className="text-xs text-slate-400 truncate">{u.endereco}</p>
+                                        </td>
+                                        <td className="hidden md:table-cell px-4 py-3 text-slate-500 whitespace-nowrap">{u.categoria || 'Outros'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          {u.telefone ? (
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                                              <CheckCheck size={13} /> OK
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                                              <PhoneOff size={13} /> Faltando
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                          {u.imagens && u.imagens.length > 0 ? (
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                                              <CheckCheck size={13} /> OK
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                                              <ImageOff size={13} /> Faltando
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                                          <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600">
+                                            <Pencil size={13} /> Completar
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>
+                          )}
                         </div>
-
                       )}
-
                     </div>
-
                   </div>
-
                 );
-
               })()}
 
 
@@ -7018,7 +7318,7 @@ export default function Admin() {
 
                       <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                        <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                           <MessageSquareWarning className="text-amber-600" size={20} />
 
@@ -7130,7 +7430,11 @@ export default function Admin() {
 
                             <div className="text-center py-12">
 
-                              <div className="text-4xl mb-3">{correcoesFiltro === 'pendente' ? '✅' : '🗒️'}</div>
+                              {correcoesFiltro !== 'pendente' && (
+
+                                <div className="text-4xl mb-3">🗒️</div>
+
+                              )}
 
                               <p className="text-slate-500 font-medium">
 
@@ -7364,7 +7668,7 @@ export default function Admin() {
 
                       <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
 
-                        <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                        <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                           <History className="text-slate-600" size={20} />
 
@@ -7574,11 +7878,11 @@ export default function Admin() {
 
                   <div className="glass-panel p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200">
 
-                    <div className="flex items-center justify-between gap-3 mb-6 border-b border-slate-100 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
 
                       <div className="flex items-center gap-3">
 
-                        <div className="h-10 w-10 bg-fuchsia-100 rounded-xl flex items-center justify-center">
+                        <div className="h-10 w-10 bg-fuchsia-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                           <BarChart3 className="text-fuchsia-600" size={20} />
 
@@ -7606,7 +7910,7 @@ export default function Admin() {
 
                         onClick={fetchMetricas}
 
-                        className="flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-all"
+                        className="flex-shrink-0 text-center px-3.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-all"
 
                       >
 
@@ -7968,7 +8272,7 @@ export default function Admin() {
 
                       <div className="flex items-center gap-3">
 
-                        <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center">
+                        <div className="h-10 w-10 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
 
                           <Download className="text-teal-600" size={20} />
 
@@ -8010,7 +8314,7 @@ export default function Admin() {
 
                       {Object.entries(EXPORT_CONFIG).map(([chave, config]) => (
 
-                        <div key={chave} className="flex items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div key={chave} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
 
                           <div className="flex items-center gap-3 min-w-0">
 
@@ -8022,7 +8326,7 @@ export default function Admin() {
 
                             <div className="min-w-0">
 
-                              <p className="text-sm font-bold text-slate-800">{config.label}</p>
+                              <p className="text-sm font-bold text-slate-800 break-words">{config.label}</p>
 
                               <p className="text-xs text-slate-400">{config.dados.length} registro(s)</p>
 
@@ -8038,7 +8342,7 @@ export default function Admin() {
 
                             disabled={config.dados.length === 0 || exportandoChave !== null}
 
-                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600 text-white text-xs font-bold transition-colors"
+                            className="flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600 text-white text-xs font-bold transition-colors"
 
                           >
 
